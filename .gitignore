@@ -1,0 +1,5 @@
+.DS_Store
+.ensime
+.ensime_lucene
+.idea*
+target
