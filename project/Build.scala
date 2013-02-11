@@ -1,6 +1,6 @@
-/**
- * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
- */
+//
+// Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+//
 
 import java.io.File
 
@@ -32,6 +32,7 @@ object Versions {
 
 object Dependencies {
   import Versions._
+  lazy val akkaactor    = "com.typesafe.akka" %% "akka-actor"                % AkkaVersion         % "compile"
   lazy val akkacluster  = "com.typesafe.akka" %% "akka-cluster-experimental" % AkkaVersion         % "compile"
   lazy val eventsourced = "org.eligosource"   %% "eventsourced"              % EventSourcedVersion % "compile"
   lazy val scalatest    = "org.scalatest"     %% "scalatest"                 % "1.9"               % "test"
@@ -47,8 +48,9 @@ object ExampleBuild extends Build {
     file("."),
     settings = buildSettings ++ Seq (
       resolvers            := Seq (typesafeRepo, eligosourceReleasesRepo, eligosourceSnapshotsRepo),
-      libraryDependencies ++= Seq (akkacluster, eventsourced),
+      libraryDependencies ++= Seq (akkaactor, akkacluster, eventsourced),
       libraryDependencies ++= Seq (scalatest)
     )
   )
 }
+

@@ -3,3 +3,6 @@
 .ensime_lucene
 .idea*
 target
+
+/akka-crdt.sublime-project
+/akka-crdt.sublime-workspace
