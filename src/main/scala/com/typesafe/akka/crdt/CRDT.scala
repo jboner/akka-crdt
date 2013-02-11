@@ -4,8 +4,6 @@
 
 package com.typesafe.akka.crdt
 
-import java.io.File
-
 import scala.concurrent.duration._
 
 import akka.actor._
@@ -13,7 +11,8 @@ import akka.cluster.Cluster
 import akka.cluster.ClusterEvent._
 
 import org.eligosource.eventsourced.core._
-import org.eligosource.eventsourced.journal.LeveldbJournalProps
+import org.eligosource.eventsourced.journal.inmem.InmemJournalProps
+import org.eligosource.eventsourced.patterns._
 
 /**
  * CRDT Extension Id and factory for creating CRDT extension.
@@ -82,7 +81,7 @@ class CRDT(val sys: ExtendedActorSystem) extends Extension with ReliableRequestR
       child actor executing operations that may fail.
   */
 
-  val journal: ActorRef = Journal(LeveldbJournalProps(new File("target/crdt")))
+  val journal: ActorRef = Journal(InmemJournalProps(Some("target/crdt")))
   val extension = EventsourcingExtension(system, journal)
   val cluster = Cluster(system)
 

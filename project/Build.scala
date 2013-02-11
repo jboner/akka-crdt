@@ -32,10 +32,13 @@ object Versions {
 
 object Dependencies {
   import Versions._
-  lazy val akkaactor    = "com.typesafe.akka" %% "akka-actor"                % AkkaVersion         % "compile"
-  lazy val akkacluster  = "com.typesafe.akka" %% "akka-cluster-experimental" % AkkaVersion         % "compile"
-  lazy val eventsourced = "org.eligosource"   %% "eventsourced"              % EventSourcedVersion % "compile"
-  lazy val scalatest    = "org.scalatest"     %% "scalatest"                 % "1.9"               % "test"
+  lazy val akkaActor         = "com.typesafe.akka" %% "akka-actor"                 % AkkaVersion         % "compile"
+  lazy val akkaCluster       = "com.typesafe.akka" %% "akka-cluster-experimental"  % AkkaVersion         % "compile"
+  lazy val eventSourced      = "org.eligosource"   %% "eventsourced-core"          % EventSourcedVersion % "compile"
+  lazy val eventSourcedInMem = "org.eligosource"   %% "eventsourced-journal-inmem" % EventSourcedVersion % "compile"
+  //lazy val eventSourcedJournalIO = "org.eligosource" %% "eventsourced-journal-journalio" % EventSourcedVersion % "compile"
+  //lazy val eventSourcedLevelDB   = "org.eligosource" %% "eventsourced-journal-leveldb"   % EventSourcedVersion % "compile"
+  lazy val scalaTest         = "org.scalatest"     %% "scalatest"                  % "1.9"               % "test"
 }
 
 object ExampleBuild extends Build {
@@ -48,8 +51,8 @@ object ExampleBuild extends Build {
     file("."),
     settings = buildSettings ++ Seq (
       resolvers            := Seq (typesafeRepo, eligosourceReleasesRepo, eligosourceSnapshotsRepo),
-      libraryDependencies ++= Seq (akkaactor, akkacluster, eventsourced),
-      libraryDependencies ++= Seq (scalatest)
+      libraryDependencies ++= Seq (akkaActor, akkaCluster, eventSourced, eventSourcedInMem),
+      libraryDependencies ++= Seq (scalaTest)
     )
   )
 }
