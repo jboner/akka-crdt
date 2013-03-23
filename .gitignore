@@ -1,8 +1,10 @@
+.cache
+.classpath
+.project
 .DS_Store
 .ensime
 .ensime_lucene
 .idea*
 target
-
-/akka-crdt.sublime-project
-/akka-crdt.sublime-workspace
+akka-crdt.sublime-project
+akka-crdt.sublime-workspace
