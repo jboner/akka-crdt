@@ -6,6 +6,7 @@ package com.typesafe.akka.crdt
 
 import org.scalatest.WordSpec
 import org.scalatest.matchers.MustMatchers
+import play.api.libs.json.Json._
 
 class IncrementingDecrementingCounterSpec extends WordSpec with MustMatchers {
   val node1 = "node1"
@@ -13,7 +14,7 @@ class IncrementingDecrementingCounterSpec extends WordSpec with MustMatchers {
 
   "A IncrementingDecrementingCounter" must {
 
-    "be able to grow each node's record by one" in {
+    "be able to increment each node's record by one" in {
       val c1 = IncrementingDecrementingCounter()
 
       val c2 = c1 + node1
@@ -27,7 +28,7 @@ class IncrementingDecrementingCounterSpec extends WordSpec with MustMatchers {
       c6.increments.state(node2) must be(3)
     }
 
-    "be able to shrink each node's record by one" in {
+    "be able to decrement each node's record by one" in {
       val c1 = IncrementingDecrementingCounter()
 
       val c2 = c1 - node1
@@ -41,7 +42,7 @@ class IncrementingDecrementingCounterSpec extends WordSpec with MustMatchers {
       c6.decrements.state(node2) must be(3)
     }
 
-    "be able to grow each node's record by arbitrary delta" in {
+    "be able to increment each node's record by arbitrary delta" in {
       val c1 = IncrementingDecrementingCounter()
 
       val c2 = c1 + (node1, 3)
@@ -55,7 +56,7 @@ class IncrementingDecrementingCounterSpec extends WordSpec with MustMatchers {
       c6.increments.state(node2) must be(10)
     }
 
-    "be able to shrink each node's record by arbitrary delta" in {
+    "be able to decrement each node's record by arbitrary delta" in {
       val c1 = IncrementingDecrementingCounter()
 
       val c2 = c1 - (node1, 3)
@@ -69,7 +70,7 @@ class IncrementingDecrementingCounterSpec extends WordSpec with MustMatchers {
       c6.decrements.state(node2) must be(10)
     }
 
-    "be able to grow and shrink each node's record by arbitrary delta" in {
+    "be able to increment and decrement each node's record by arbitrary delta" in {
       val c1 = IncrementingDecrementingCounter()
 
       val c2 = c1 + (node1, 3)
@@ -129,6 +130,29 @@ class IncrementingDecrementingCounterSpec extends WordSpec with MustMatchers {
       merged1.value must be(6)
       val merged2 = c26 merge c16
       merged2.value must be(6)
+    }
+
+    "be able to serialize itself to JSON" in {
+      val c1 = IncrementingDecrementingCounter()
+
+      stringify(toJson(c1)) must be("""{"type":"pn-counter","increments":{"type":"g-counter","state":{}},"decrements":{"type":"g-counter","state":{}}}""")
+
+      val c2 = c1 + (node1, 3)
+      val c3 = c2 - (node1, 2)
+
+      val c4 = c3 + (node2, 5)
+      val c5 = c4 - (node2, 2)
+      val c6 = c5 + node2
+
+      stringify(toJson(c6)) must be("""{"type":"pn-counter","increments":{"type":"g-counter","state":{"node1":3,"node2":6}},"decrements":{"type":"g-counter","state":{"node1":2,"node2":2}}}""")
+    }
+
+    "be able to serialize itself from JSON" in {
+      val json = parse("""{"type":"pn-counter","increments":{"type":"g-counter","state":{"node1":3,"node2":6}},"decrements":{"type":"g-counter","state":{"node1":2,"node2":2}}}""")
+      val c1 = json.as[IncrementingDecrementingCounter]
+
+      c1.increments.value must be(9)
+      c1.decrements.value must be(4)
     }
   }
 }

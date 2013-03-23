@@ -7,13 +7,15 @@ package com.typesafe.akka.crdt
 import org.scalatest.WordSpec
 import org.scalatest.matchers.MustMatchers
 
+import play.api.libs.json.Json._
+
 class IncrementingCounterSpec extends WordSpec with MustMatchers {
   val node1 = "node1"
   val node2 = "node2"
 
   "A IncrementingCounter" must {
 
-    "be able to grow each node's record by one" in {
+    "be able to increment each node's record by one" in {
       val c1 = IncrementingCounter()
 
       val c2 = c1 + node1
@@ -27,7 +29,7 @@ class IncrementingCounterSpec extends WordSpec with MustMatchers {
       c6.state(node2) must be(3)
     }
 
-    "be able to grow each node's record by arbitrary delta" in {
+    "be able to increment each node's record by arbitrary delta" in {
       val c1 = IncrementingCounter()
 
       val c2 = c1 + (node1, 3)
@@ -88,6 +90,32 @@ class IncrementingCounterSpec extends WordSpec with MustMatchers {
       val merged2 = c26 merge c16
       merged2.state(node1) must be(11)
       merged2.state(node2) must be(16)
+    }
+
+    "be able to serialize itself to JSON" in {
+      val c1 = IncrementingCounter()
+
+      stringify(toJson(c1)) must be("""{"type":"g-counter","state":{}}""")
+
+      val c2 = c1 + node1
+      val c3 = c2 + node1
+
+      val c4 = c3 + node2
+      val c5 = c4 + node2
+      val c6 = c5 + node2
+
+      c6.state(node1) must be(2)
+      c6.state(node2) must be(3)
+
+      stringify(toJson(c6)) must be("""{"type":"g-counter","state":{"node1":2,"node2":3}}""")
+    }
+
+    "be able to serialize itself from JSON" in {
+      val json = parse("""{"type":"g-counter","state":{"node1":2,"node2":3}}""")
+      val c1 = json.as[IncrementingCounter]
+
+      c1.state(node1) must be(2)
+      c1.state(node2) must be(3)
     }
   }
 }
