@@ -6,7 +6,7 @@ package com.typesafe.akka.crdt
 
 import com.typesafe.config.Config
 
-class CRDTSettings(val config: Config, val systemName: String) {
+class CRDTSettings(val config: Config, val name: String) {
   import config._
 
   final val FeatureX: Double = {

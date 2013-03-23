@@ -12,7 +12,31 @@ import akka.cluster.ClusterEvent._
 
 import org.eligosource.eventsourced.core._
 import org.eligosource.eventsourced.journal.inmem.InmemJournalProps
-import org.eligosource.eventsourced.patterns._
+import org.eligosource.eventsourced.patterns.reliable.requestreply._
+import scala.collection.immutable
+
+trait CRDT {
+  def `type`: String
+}
+
+trait CRDTCounter extends CRDT {
+  def value: Int
+}
+
+trait CRDTSet[T] extends CRDT {
+
+  def toSet: immutable.Set[T]
+
+  def toSeq: immutable.Seq[T] = toSet.toVector
+
+  def contains(element: T): Boolean = toSet contains element
+
+  def foreach(f: T => Unit): Unit = toSeq foreach f
+
+  def isEmpty: Boolean = toSeq.isEmpty
+
+  def size: Int = toSeq.size
+}
 
 /**
  * CRDT Extension Id and factory for creating CRDT extension.
@@ -20,12 +44,12 @@ import org.eligosource.eventsourced.patterns._
  * {{{
  * }}}
  */
-object CRDT extends ExtensionId[CRDT] with ExtensionIdProvider {
-  override def get(system: ActorSystem): CRDT = super.get(system)
+object CRDTManager extends ExtensionId[CRDTManager] with ExtensionIdProvider {
+  override def get(system: ActorSystem): CRDTManager = super.get(system)
 
-  override def lookup() = CRDT
+  override def lookup() = CRDTManager
 
-  override def createExtension(system: ExtendedActorSystem): CRDT = new CRDT(system)
+  override def createExtension(system: ExtendedActorSystem): CRDTManager = new CRDTManager(system)
 }
 
 /**
@@ -33,7 +57,7 @@ object CRDT extends ExtensionId[CRDT] with ExtensionIdProvider {
  * {{{
  * }}}
  */
-class CRDT(val sys: ExtendedActorSystem) extends Extension with ReliableRequestReply {
+class CRDTManager(val sys: ExtendedActorSystem) extends Extension {
   implicit val system = sys
 
   val settings = new CRDTSettings(system.settings.config, system.name)
