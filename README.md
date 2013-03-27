@@ -2,6 +2,40 @@ Akka CRDT
 =========
 Server-managed CRDT implementation for Akka
 
+TODO
+====
+
+Op-based
+--------
+Specification 5 op-based Counter
+Specification 9 Op-based LWW-Register
+Specification 13 U-Set: Op-based 2P-Set with unique elements
+Specification 14 Molli, Weiss, Skaf Set
+Specification 15 Op-based Observed-Remove Set (OR-Set)
+Specification 16 2P2P-Graph (op-based)
+Specification 17 Add-only Monotonic DAG (op-based)
+Specification 18 Add-Remove Partial Order
+Specification 19 Replicated Growable Array (RGA)
+Specification 21 Op-based Observed-Remove Shopping Cart (OR-Cart)
+
+State-based
+-----------
+DONE Specification 6  State-based increment-only counter
+DONE Specification 7  State-based PN-Counter
+Specification 8       State-based Last-Writer-Wins Register (LWW-Register)
+Specification 10      State-based Multi-Value Register (MV-Register)
+DONE Specification 11 State-based grow-only Set (G-Set)
+DONE Specification 12 State-based 2P-Set
+
+Garbage Collection
+------------------
+
+Reliable Broadcast
+------------------
+
+
+DOCUMENTATION
+=============
 Sets
 ===
 
