@@ -2,7 +2,7 @@
  * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
  */
 
-package com.typesafe.akka.crdt
+package com.typesafe.akka.crdt.state
 
 import org.scalatest.WordSpec
 import org.scalatest.matchers.MustMatchers

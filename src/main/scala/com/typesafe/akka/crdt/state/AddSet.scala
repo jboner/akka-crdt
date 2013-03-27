@@ -2,11 +2,12 @@
  * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
  */
 
-package com.typesafe.akka.crdt
+package com.typesafe.akka.crdt.state
 
 import scala.collection.immutable
 
 import play.api.libs.json._
+import com.typesafe.akka.crdt.CRDTSet
 
 /**
  * Implements a CRDT 'Add Set' also called a 'G-Set'. You cannot remove an element of a G-Set.

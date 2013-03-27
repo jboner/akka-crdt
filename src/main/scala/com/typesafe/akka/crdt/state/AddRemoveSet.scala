@@ -2,11 +2,12 @@
  * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
  */
 
-package com.typesafe.akka.crdt
+package com.typesafe.akka.crdt.state
 
 import scala.collection.immutable
 
 import play.api.libs.json._
+import com.typesafe.akka.crdt.CRDTSet
 
 /**
  * Implements a CRDT 'Two Phase Set' also called a '2P-Set'.

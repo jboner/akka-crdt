@@ -2,9 +2,10 @@
  * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
  */
 
-package com.typesafe.akka.crdt
+package com.typesafe.akka.crdt.state
 
 import play.api.libs.json._
+import com.typesafe.akka.crdt.CRDT
 
 /**
  * Implements a CRDT 'Growing Counter' also called a 'G-Counter'.

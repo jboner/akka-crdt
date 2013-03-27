@@ -6,11 +6,13 @@ import java.io.File
 
 import sbt._
 import Keys._
+import com.typesafe.sbt.SbtMultiJvm
+import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.{ MultiJvm }
 
 object BuildSettings {
   val buildOrganization = "com.typesafe.akka"
   val buildVersion      = "0.1-SNAPSHOT"
-  val buildScalaVersion = "2.10.0"
+  val buildScalaVersion = "2.10.1"
 
   val buildSettings = Defaults.defaultSettings ++ Seq (
     organization := buildOrganization,
@@ -28,8 +30,8 @@ object Resolvers {
 }
 
 object Versions {
-  val AkkaVersion         = "2.1.1"
-  val EventSourcedVersion = "0.5-SNAPSHOT"
+  val AkkaVersion         = "2.1.2"
+  val EventSourcedVersion = "0.5-M2"
 }
 
 object Dependencies {
@@ -41,7 +43,9 @@ object Dependencies {
   lazy val eventSourcedInMem = "org.eligosource"   %% "eventsourced-journal-inmem" % EventSourcedVersion % "compile"
   //lazy val eventSourcedJournalIO = "org.eligosource" %% "eventsourced-journal-journalio" % EventSourcedVersion % "compile"
   //lazy val eventSourcedLevelDB   = "org.eligosource" %% "eventsourced-journal-leveldb"   % EventSourcedVersion % "compile"
-  lazy val scalaTest         = "org.scalatest"     %% "scalatest"                  % "1.9"               % "test"
+
+  lazy val scalaTest         = "org.scalatest"     %% "scalatest"                      % "1.9"               % "test"
+  lazy val akkaMultiNodeTest = "com.typesafe.akka" %% "akka-remote-tests-experimental" % AkkaVersion         % "test"
 }
 
 object ExampleBuild extends Build {
@@ -52,11 +56,26 @@ object ExampleBuild extends Build {
   lazy val akkaCRDT = Project (
     "akka-crdt",
     file("."),
-    settings = buildSettings ++ Seq (
+    settings = buildSettings ++ multiJvmSettings ++ Seq (
       resolvers            := Seq (typesafeReleasesRepo, typesafeSnapshotsRepo, eligosourceReleasesRepo, eligosourceSnapshotsRepo, temporary),
       libraryDependencies ++= Seq (akkaActor, akkaCluster, playJson, eventSourced, eventSourcedInMem),
-      libraryDependencies ++= Seq (scalaTest)
+      libraryDependencies ++= Seq (scalaTest, akkaMultiNodeTest)
     )
+  ) configs(MultiJvm)
+
+  lazy val multiJvmSettings = SbtMultiJvm.multiJvmSettings ++ Seq(
+    // make sure that MultiJvm test are compiled by the default test compilation
+    compile in MultiJvm <<= (compile in MultiJvm) triggeredBy (compile in Test),
+    // disable parallel tests
+    parallelExecution in Test := false,
+    // make sure that MultiJvm tests are executed by the default test target
+    executeTests in Test <<=
+      ((executeTests in Test), (executeTests in MultiJvm)) map {
+        case ((_, testResults), (_, multiJvmResults))  =>
+          val results = testResults ++ multiJvmResults
+          (Tests.overall(results.values), results)
+    }
   )
+
 }
 
