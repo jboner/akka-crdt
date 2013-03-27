@@ -17,7 +17,7 @@ class AddRemoveSetSpec extends WordSpec with MustMatchers {
   "An AddRemoveSet" must {
 
     "be able to add data" in {
-      val c1 = AddRemoveSet[String]()
+      val c1 = AddRemoveSet[String](id = "users")
 
       val c2 = c1 + data1
       val c3 = c2 + data2
@@ -32,7 +32,7 @@ class AddRemoveSetSpec extends WordSpec with MustMatchers {
     }
 
     "be able to remove added data" in {
-      val c1 = AddRemoveSet[String]()
+      val c1 = AddRemoveSet[String](id = "users")
 
       val c2 = c1 + data1
       val c3 = c2 + data2
@@ -46,7 +46,7 @@ class AddRemoveSetSpec extends WordSpec with MustMatchers {
 
 
     "be throw exception if attempt to remove element that is not part of the set" in {
-      val c1 = AddRemoveSet[String]()
+      val c1 = AddRemoveSet[String](id = "users")
 
       val c2 = c1 + data1
       val c3 = c2 + data2
@@ -55,7 +55,7 @@ class AddRemoveSetSpec extends WordSpec with MustMatchers {
     }
 
     "be throw exception if attempt to add an element previously removed from set" in {
-      val c1 = AddRemoveSet[String]()
+      val c1 = AddRemoveSet[String](id = "users")
 
       val c2 = c1 + data1
       val c3 = c2 - data1
@@ -67,7 +67,7 @@ class AddRemoveSetSpec extends WordSpec with MustMatchers {
 
     "be able to have its data set correctly merged with another AddRemoveSet with unique data sets" in {
       // set 1
-      val c11 = AddRemoveSet[String]()
+      val c11 = AddRemoveSet[String](id = "users")
 
       val c12 = c11 + data1
       val c13 = c12 + data2
@@ -76,7 +76,7 @@ class AddRemoveSetSpec extends WordSpec with MustMatchers {
       c13.toSet must contain (data2)
 
       // set 2
-      val c21 = AddRemoveSet[String]()
+      val c21 = AddRemoveSet[String](id = "users")
 
       val c22 = c21 + data3
       val c23 = c22 + data4
@@ -101,7 +101,7 @@ class AddRemoveSetSpec extends WordSpec with MustMatchers {
 
     "be able to have its data set correctly merged with another AddRemoveSet with overlapping data sets" in {
       // set 1
-      val c10 = AddRemoveSet[String]()
+      val c10 = AddRemoveSet[String](id = "users")
 
       val c11 = c10 + data1
       val c12 = c11 + data2
@@ -111,7 +111,7 @@ class AddRemoveSetSpec extends WordSpec with MustMatchers {
       c13.toSet must contain (data2)
 
       // set 2
-      val c20 = AddRemoveSet[String]()
+      val c20 = AddRemoveSet[String](id = "users")
 
       val c21 = c20 + data1
       val c22 = c21 + data3
@@ -136,9 +136,9 @@ class AddRemoveSetSpec extends WordSpec with MustMatchers {
     }
 
     "be able to serialize itself to JSON" in {
-      val c1 = AddRemoveSet[String]()
+      val c1 = AddRemoveSet[String](id = "users")
 
-      stringify(toJson(c1)) must be("""{"type":"2p-set","increments":{"type":"g-set","state":[]},"decrements":{"type":"g-set","state":[]}}""")
+      stringify(toJson(c1)) must be("""{"type":"2p-set","id":"users","increments":{"type":"g-set","id":"users/inc","state":[]},"decrements":{"type":"g-set","id":"users/dec","state":[]}}""")
 
       val c2 = c1 + data1
       val c3 = c2 + data2
@@ -146,11 +146,11 @@ class AddRemoveSetSpec extends WordSpec with MustMatchers {
       val c4 = c3 - data2
       val c5 = c4 + data3
 
-      stringify(toJson(c5)) must be("""{"type":"2p-set","increments":{"type":"g-set","state":["data1","data2","data3"]},"decrements":{"type":"g-set","state":["data2"]}}""")
+      stringify(toJson(c5)) must be("""{"type":"2p-set","id":"users","increments":{"type":"g-set","id":"users/inc","state":["data1","data2","data3"]},"decrements":{"type":"g-set","id":"users/dec","state":["data2"]}}""")
     }
 
     "be able to serialize itself from JSON" in {
-      val json = parse("""{"type":"2p-set","increments":{"type":"g-set","state":["data1","data2","data3"]},"decrements":{"type":"g-set","state":["data2"]}}""")
+      val json = parse("""{"type":"2p-set","id":"users","increments":{"type":"g-set","id":"users/inc","state":["data1","data2","data3"]},"decrements":{"type":"g-set","id":"users/dec","state":["data2"]}}""")
       val c1 = json.as[AddRemoveSet[String]]
 
       c1.toSet must contain (data1)

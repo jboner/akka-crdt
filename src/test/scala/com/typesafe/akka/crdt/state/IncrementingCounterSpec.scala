@@ -16,7 +16,7 @@ class IncrementingCounterSpec extends WordSpec with MustMatchers {
   "A IncrementingCounter" must {
 
     "be able to increment each node's record by one" in {
-      val c1 = IncrementingCounter()
+      val c1 = IncrementingCounter(id = "users")
 
       val c2 = c1 + node1
       val c3 = c2 + node1
@@ -30,7 +30,7 @@ class IncrementingCounterSpec extends WordSpec with MustMatchers {
     }
 
     "be able to increment each node's record by arbitrary delta" in {
-      val c1 = IncrementingCounter()
+      val c1 = IncrementingCounter(id = "users")
 
       val c2 = c1 + (node1, 3)
       val c3 = c2 + (node1, 4)
@@ -44,7 +44,7 @@ class IncrementingCounterSpec extends WordSpec with MustMatchers {
     }
 
     "be able to summarize the history to the correct aggregated value" in {
-      val c1 = IncrementingCounter()
+      val c1 = IncrementingCounter(id = "users")
 
       val c2 = c1 + (node1, 3)
       val c3 = c2 + (node1, 4)
@@ -61,7 +61,7 @@ class IncrementingCounterSpec extends WordSpec with MustMatchers {
 
     "be able to have its history correctly merged with another IncrementingCounter" in {
       // counter 1
-      val c11 = IncrementingCounter()
+      val c11 = IncrementingCounter(id = "users")
       val c12 = c11 + (node1, 3)
       val c13 = c12 + (node1, 4)
       val c14 = c13 + (node2, 2)
@@ -72,7 +72,7 @@ class IncrementingCounterSpec extends WordSpec with MustMatchers {
       c16.state(node2) must be(10)
 
       // counter 1
-      val c21 = IncrementingCounter()
+      val c21 = IncrementingCounter(id = "users")
       val c22 = c21 + (node1, 2)
       val c23 = c22 + (node1, 2)
       val c24 = c23 + (node2, 3)
@@ -93,9 +93,9 @@ class IncrementingCounterSpec extends WordSpec with MustMatchers {
     }
 
     "be able to serialize itself to JSON" in {
-      val c1 = IncrementingCounter()
+      val c1 = IncrementingCounter(id = "users")
 
-      stringify(toJson(c1)) must be("""{"type":"g-counter","state":{}}""")
+      stringify(toJson(c1)) must be("""{"type":"g-counter","id":"users","state":{}}""")
 
       val c2 = c1 + node1
       val c3 = c2 + node1
@@ -107,11 +107,11 @@ class IncrementingCounterSpec extends WordSpec with MustMatchers {
       c6.state(node1) must be(2)
       c6.state(node2) must be(3)
 
-      stringify(toJson(c6)) must be("""{"type":"g-counter","state":{"node1":2,"node2":3}}""")
+      stringify(toJson(c6)) must be("""{"type":"g-counter","id":"users","state":{"node1":2,"node2":3}}""")
     }
 
     "be able to serialize itself from JSON" in {
-      val json = parse("""{"type":"g-counter","state":{"node1":2,"node2":3}}""")
+      val json = parse("""{"type":"g-counter","id":"users","state":{"node1":2,"node2":3}}""")
       val c1 = json.as[IncrementingCounter]
 
       c1.state(node1) must be(2)

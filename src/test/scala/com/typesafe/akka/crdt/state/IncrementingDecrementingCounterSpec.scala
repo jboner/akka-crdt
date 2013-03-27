@@ -15,7 +15,7 @@ class IncrementingDecrementingCounterSpec extends WordSpec with MustMatchers {
   "A IncrementingDecrementingCounter" must {
 
     "be able to increment each node's record by one" in {
-      val c1 = IncrementingDecrementingCounter()
+      val c1 = IncrementingDecrementingCounter(id = "users")
 
       val c2 = c1 + node1
       val c3 = c2 + node1
@@ -29,7 +29,7 @@ class IncrementingDecrementingCounterSpec extends WordSpec with MustMatchers {
     }
 
     "be able to decrement each node's record by one" in {
-      val c1 = IncrementingDecrementingCounter()
+      val c1 = IncrementingDecrementingCounter(id = "users")
 
       val c2 = c1 - node1
       val c3 = c2 - node1
@@ -43,7 +43,7 @@ class IncrementingDecrementingCounterSpec extends WordSpec with MustMatchers {
     }
 
     "be able to increment each node's record by arbitrary delta" in {
-      val c1 = IncrementingDecrementingCounter()
+      val c1 = IncrementingDecrementingCounter(id = "users")
 
       val c2 = c1 + (node1, 3)
       val c3 = c2 + (node1, 4)
@@ -57,7 +57,7 @@ class IncrementingDecrementingCounterSpec extends WordSpec with MustMatchers {
     }
 
     "be able to decrement each node's record by arbitrary delta" in {
-      val c1 = IncrementingDecrementingCounter()
+      val c1 = IncrementingDecrementingCounter(id = "users")
 
       val c2 = c1 - (node1, 3)
       val c3 = c2 - (node1, 4)
@@ -71,7 +71,7 @@ class IncrementingDecrementingCounterSpec extends WordSpec with MustMatchers {
     }
 
     "be able to increment and decrement each node's record by arbitrary delta" in {
-      val c1 = IncrementingDecrementingCounter()
+      val c1 = IncrementingDecrementingCounter(id = "users")
 
       val c2 = c1 + (node1, 3)
       val c3 = c2 - (node1, 2)
@@ -85,7 +85,7 @@ class IncrementingDecrementingCounterSpec extends WordSpec with MustMatchers {
     }
 
     "be able to summarize the history to the correct aggregated value of increments and decrements" in {
-      val c1 = IncrementingDecrementingCounter()
+      val c1 = IncrementingDecrementingCounter(id = "users")
 
       val c2 = c1 + (node1, 3)
       val c3 = c2 - (node1, 2)
@@ -102,7 +102,7 @@ class IncrementingDecrementingCounterSpec extends WordSpec with MustMatchers {
 
     "be able to have its history correctly merged with another IncrementingCounter" in {
       // counter 1
-      val c11 = IncrementingDecrementingCounter()
+      val c11 = IncrementingDecrementingCounter(id = "users")
       val c12 = c11 + (node1, 3)
       val c13 = c12 - (node1, 2)
       val c14 = c13 + (node2, 5)
@@ -114,7 +114,7 @@ class IncrementingDecrementingCounterSpec extends WordSpec with MustMatchers {
       c16.value must be(5)
 
       // counter 1
-      val c21 = IncrementingDecrementingCounter()
+      val c21 = IncrementingDecrementingCounter(id = "users")
       val c22 = c21 + (node1, 2)
       val c23 = c22 - (node1, 3)
       val c24 = c23 + (node2, 3)
@@ -133,9 +133,9 @@ class IncrementingDecrementingCounterSpec extends WordSpec with MustMatchers {
     }
 
     "be able to serialize itself to JSON" in {
-      val c1 = IncrementingDecrementingCounter()
+      val c1 = IncrementingDecrementingCounter(id = "users")
 
-      stringify(toJson(c1)) must be("""{"type":"pn-counter","increments":{"type":"g-counter","state":{}},"decrements":{"type":"g-counter","state":{}}}""")
+      stringify(toJson(c1)) must be("""{"type":"pn-counter","id":"users","increments":{"type":"g-counter","id":"users/inc","state":{}},"decrements":{"type":"g-counter","id":"users/dec","state":{}}}""")
 
       val c2 = c1 + (node1, 3)
       val c3 = c2 - (node1, 2)
@@ -144,11 +144,11 @@ class IncrementingDecrementingCounterSpec extends WordSpec with MustMatchers {
       val c5 = c4 - (node2, 2)
       val c6 = c5 + node2
 
-      stringify(toJson(c6)) must be("""{"type":"pn-counter","increments":{"type":"g-counter","state":{"node1":3,"node2":6}},"decrements":{"type":"g-counter","state":{"node1":2,"node2":2}}}""")
+      stringify(toJson(c6)) must be("""{"type":"pn-counter","id":"users","increments":{"type":"g-counter","id":"users/inc","state":{"node1":3,"node2":6}},"decrements":{"type":"g-counter","id":"users/dec","state":{"node1":2,"node2":2}}}""")
     }
 
     "be able to serialize itself from JSON" in {
-      val json = parse("""{"type":"pn-counter","increments":{"type":"g-counter","state":{"node1":3,"node2":6}},"decrements":{"type":"g-counter","state":{"node1":2,"node2":2}}}""")
+      val json = parse("""{"type":"pn-counter","id":"users","increments":{"type":"g-counter","id":"users/inc","state":{"node1":3,"node2":6}},"decrements":{"type":"g-counter","id":"users/dec","state":{"node1":2,"node2":2}}}""")
       val c1 = json.as[IncrementingDecrementingCounter]
 
       c1.increments.value must be(9)

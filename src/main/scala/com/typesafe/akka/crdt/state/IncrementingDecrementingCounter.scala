@@ -5,10 +5,11 @@
 package com.typesafe.akka.crdt.state
 
 import play.api.libs.json._
-import com.typesafe.akka.crdt.CRDT
+
+import java.util.UUID
 
 /**
- * Implements a CRDT 'Increment/Decrement Counter' also called a 'PN-Counter'.
+ * Implements a ConvergentReplicatedDataType 'Increment/Decrement Counter' also called a 'PN-Counter'.
  *
  * PN-Counters allow the counter to be incremented by tracking the
  * increments (P) separate from the decrements (N). Both P and N are represented
@@ -16,9 +17,10 @@ import com.typesafe.akka.crdt.CRDT
  * counters. The value of the counter is the value of the P counter minus
  * the value of the N counter.
  */
-case class IncrementingDecrementingCounter(
-  private[crdt] val increments: IncrementingCounter = IncrementingCounter(),
-  private[crdt] val decrements: IncrementingCounter = IncrementingCounter()) extends CRDT {
+case class IncrementingDecrementingCounter private (
+  val id: String,
+  private[crdt] val increments: IncrementingCounter,
+  private[crdt] val decrements: IncrementingCounter) extends ConvergentReplicatedDataTypeCounter {
 
   val `type`: String = "pn-counter"
 
@@ -26,27 +28,38 @@ case class IncrementingDecrementingCounter(
 
   def +(node: String, delta: Int = 1): IncrementingDecrementingCounter = {
     if (delta < 0) this - (node, delta)
-    else IncrementingDecrementingCounter(increments + (node, delta), decrements)
+    else new IncrementingDecrementingCounter(id, increments + (node, delta), decrements)
   }
 
   def -(node: String, delta: Int = 1): IncrementingDecrementingCounter =
-    IncrementingDecrementingCounter(increments, decrements + (node, Math.abs(delta)))
+    new IncrementingDecrementingCounter(id, increments, decrements + (node, Math.abs(delta)))
 
   def merge(that: IncrementingDecrementingCounter): IncrementingDecrementingCounter =
-    IncrementingDecrementingCounter(that.increments.merge(this.increments), that.decrements.merge(this.decrements))
+    new IncrementingDecrementingCounter(id, that.increments.merge(this.increments), that.decrements.merge(this.decrements))
 }
 
 object IncrementingDecrementingCounter {
+
+  def apply(): IncrementingDecrementingCounter = {
+    apply(UUID.randomUUID.toString)
+  }
+
+  def apply(id: String): IncrementingDecrementingCounter = {
+    new IncrementingDecrementingCounter(id, IncrementingCounter(id = id + "/inc"), IncrementingCounter(id = id + "/dec"))
+  }
+
   implicit object format extends Format[IncrementingDecrementingCounter] {
-    def reads(json: JsValue): JsResult[IncrementingDecrementingCounter] = JsSuccess(IncrementingDecrementingCounter(
+    def reads(json: JsValue): JsResult[IncrementingDecrementingCounter] = JsSuccess(new IncrementingDecrementingCounter(
+      (json \ "id").as[String],
       (json \ "increments").as[IncrementingCounter],
       (json \ "decrements").as[IncrementingCounter]
     ))
 
-    def writes(idc: IncrementingDecrementingCounter): JsValue = JsObject(Seq(
-      "type" -> JsString(idc.`type`),
-      "increments" -> Json.toJson(idc.increments),
-      "decrements" -> Json.toJson(idc.decrements)
+    def writes(counter: IncrementingDecrementingCounter): JsValue = JsObject(Seq(
+      "type" -> JsString(counter.`type`),
+      "id" -> JsString(counter.id),
+      "increments" -> Json.toJson(counter.increments),
+      "decrements" -> Json.toJson(counter.decrements)
     ))
   }
 }

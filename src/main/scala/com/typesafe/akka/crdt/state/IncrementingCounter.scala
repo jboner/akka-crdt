@@ -5,10 +5,11 @@
 package com.typesafe.akka.crdt.state
 
 import play.api.libs.json._
-import com.typesafe.akka.crdt.CRDT
+
+import java.util.UUID
 
 /**
- * Implements a CRDT 'Growing Counter' also called a 'G-Counter'.
+ * Implements a ConvergentReplicatedDataType 'Growing Counter' also called a 'G-Counter'.
  *
  * A G-Counter is a increment-only counter (inspired by vector clocks) in
  * which only increment and merge are possible. Incrementing the counter
@@ -17,7 +18,8 @@ import com.typesafe.akka.crdt.CRDT
  * clock merge). The value of the counter is the sum of all actor counts.
  */
 case class IncrementingCounter(
-  private[crdt] val state: Map[String, Int] = Map.empty[String, Int]) extends CRDT {
+  val id: String = UUID.randomUUID.toString,
+  private[crdt] val state: Map[String, Int] = Map.empty[String, Int]) extends ConvergentReplicatedDataTypeCounter {
 
   val `type`: String = "g-counter"
 
@@ -37,12 +39,14 @@ case class IncrementingCounter(
 object IncrementingCounter {
   implicit object format extends Format[IncrementingCounter] {
     def reads(json: JsValue): JsResult[IncrementingCounter] = JsSuccess(IncrementingCounter(
+      (json \ "id").as[String],
       (json \ "state").as[Map[String, Int]]
     ))
 
-    def writes(ic: IncrementingCounter): JsValue = JsObject(Seq(
-      "type" -> JsString(ic.`type`),
-      "state" -> Json.toJson(ic.state)
+    def writes(counter: IncrementingCounter): JsValue = JsObject(Seq(
+      "type" -> JsString(counter.`type`),
+      "id" -> JsString(counter.id),
+      "state" -> Json.toJson(counter.state)
     ))
   }
 }
