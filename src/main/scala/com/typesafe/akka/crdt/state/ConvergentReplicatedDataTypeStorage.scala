@@ -7,21 +7,25 @@ package com.typesafe.akka.crdt.state
 import scala.collection.JavaConversions.collectionAsScalaIterable
 
 import akka.actor._
-
 import akka.cluster.Cluster
+import akka.cluster.ClusterEvent
 import akka.cluster.ClusterEvent._
 
-import org.eligosource.eventsourced.core._
-import org.eligosource.eventsourced.journal.inmem.InmemJournalProps
+import play.api.libs.json.Json._
+import play.api.libs.json._
 
 import java.util.concurrent.ConcurrentHashMap
 
-object ConvergentReplicatedDataTypeStorage extends ExtensionId[ConvergentReplicatedDataTypeStorage] with ExtensionIdProvider {
+object ConvergentReplicatedDataTypeStorage
+  extends ExtensionId[ConvergentReplicatedDataTypeStorage]
+  with ExtensionIdProvider {
+
   override def get(system: ActorSystem): ConvergentReplicatedDataTypeStorage = super.get(system)
 
   override def lookup() = ConvergentReplicatedDataTypeStorage
 
-  override def createExtension(system: ExtendedActorSystem): ConvergentReplicatedDataTypeStorage = new ConvergentReplicatedDataTypeStorage(system)
+  override def createExtension(system: ExtendedActorSystem): ConvergentReplicatedDataTypeStorage =
+    new ConvergentReplicatedDataTypeStorage(system)
 }
 
 /**
@@ -30,17 +34,24 @@ object ConvergentReplicatedDataTypeStorage extends ExtensionId[ConvergentReplica
  * }}}
  */
 class ConvergentReplicatedDataTypeStorage(val sys: ExtendedActorSystem) extends Extension {
-  implicit val system = sys
+  private implicit val system = sys
 
-  val settings = new ConvergentReplicatedDataTypeSettings(system.settings.config, system.name)
-  val journal: ActorRef = Journal(InmemJournalProps(Some("cvrdt")))
-  val extension = EventsourcingExtension(system, journal)
-  val cluster = Cluster(system)
+  private val settings = new ConvergentReplicatedDataTypeSettings(system.settings.config, system.name)
+  private val cluster = Cluster(system)
 
   private val nodes = new ConcurrentHashMap[Address, ActorRef]
 
-  val clusterListener = system.actorOf(Props(new Actor with ActorLogging {
-    def register(address: Address) = nodes.put(address, system.actorFor(s"${address.toString}/user/cvrdt-event-channel"))
+  private val gCounters = new ConcurrentHashMap[String, IncrementingCounter]
+  private val pnCounters = new ConcurrentHashMap[String, IncrementingDecrementingCounter]
+  private val gSet = new ConcurrentHashMap[String, AddSet[_]]
+  private val ppSet = new ConcurrentHashMap[String, AddRemoveSet[_]]
+
+  private val changeListeners = new ConcurrentHashMap[String, Set[ActorRef]]
+
+  private val clusterListenerDaemon = system.actorOf(Props(new Actor with ActorLogging {
+
+    def register(address: Address) =
+      nodes.put(address, system.actorFor(s"${address.toString}/user/cvrdt-change-listener"))
 
     def receive = {
       case state: CurrentClusterState ⇒ state.members foreach { member => register(member.address) }
@@ -50,9 +61,9 @@ class ConvergentReplicatedDataTypeStorage(val sys: ExtendedActorSystem) extends 
       case MemberExited(member)       ⇒ nodes.remove(member.address)
       case _: ClusterDomainEvent      ⇒ {} // ignore
     }
-  }), name = "crdt:clusterListener")
+  }), name = "crdt:clusterListenerDaemon")
 
-  cluster.subscribe(clusterListener, classOf[ClusterDomainEvent])
+  cluster.subscribe(clusterListenerDaemon, classOf[ClusterDomainEvent])
 
   /*
   **
@@ -85,16 +96,59 @@ private[cluster] final class ClusterCoreSupervisor extends Actor with ActorLoggi
     case InternalClusterAction.GetClusterCoreRef ⇒ sender ! coreDaemon
   }
 }*/
-  val channel = system.actorOf(Props[ConvergentReplicatedDataTypeEventReceiver], name = "cvrdt-event-channel")
 
-  def publish(event: ConvergentReplicatedDataType): Unit = {
-    scala.collection.JavaConversions.collectionAsScalaIterable(nodes.values).foreach { _ ! event}
+  private val changeListenerDaemon = system.actorOf(
+    Props[ConvergentReplicatedDataTypeChangeListener], name = "cvrdt-change-listener")
+
+  def shutdown(): Unit = {
+    system.stop(changeListenerDaemon)
+    system.stop(clusterListenerDaemon)
+  }
+
+  // FIXME should be specialized
+  def crdtFor(crdtId: String): ConvergentReplicatedDataType = {
+    IncrementingCounter()
+  }
+
+  def subscribe(crdtId: String, listener: ActorRef): Unit = {
+    if (!changeListeners.contains(crdtId)) throw new IllegalArgumentException(s"CRDT with id $crdtId can not be found")
+    changeListeners.put(crdtId, changeListeners.get(crdtId) + listener)
+  }
+
+  private[crdt] def publishChange(json: JsValue): Unit = {
+    scala.collection.JavaConversions.collectionAsScalaIterable(nodes.values).foreach { _ ! stringify(json) }
   }
 }
 
-class ConvergentReplicatedDataTypeEventReceiver extends Actor with ActorLogging {
+class ConvergentReplicatedDataTypeChangeListener extends Actor with ActorLogging {
+
   def receive = {
-    case event: ConvergentReplicatedDataType =>
-      log.debug("Received updated CvRDT {}", event)
+    case jsonString: String =>
+      log.debug("Received JSON {}", jsonString)
+      val json = parse(jsonString)
+
+      (json \ "type").as[String] match {
+        case "g-counter" =>
+          val counter = json.as[IncrementingCounter]
+          log.info("=================>>>> Received updated IncrementingCounter {}", counter)
+
+        case "pn-counter" =>
+          val counter = json.as[IncrementingDecrementingCounter]
+          log.info("=================>>>> Received updated IncrementingDecrementingCounter {}", counter)
+
+        case "g-set" =>
+          // FIXME add type to JSON (string, json and binary/bytestring) then dispatch on it here
+          //log.info("=================>>>> Received updated AddSet {}", set)
+          // val set = (json \ "format").as[String] match {
+          //   case "string" => json.as[AddSet[String]]
+          //   case "json"   => json.as[AddSet[JsValue]]
+          //   case "binary" => json.as[AddSet[ByteString]]
+        case "2p-set" =>
+          // FIXME add type to JSON (string, json and binary/bytestring) then dispatch on it here
+          val set = json.as[AddRemoveSet[String]]
+          log.info("=================>>>> Received updated AddRemoveSet {}", set)
+
+        case _ => error("Received JSON is not a CvRDT: " + jsonString)
+      }
   }
 }
