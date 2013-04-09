@@ -115,6 +115,10 @@ private[cluster] final class ClusterCoreSupervisor extends Actor with ActorLoggi
     changeListeners.put(crdtId, changeListeners.get(crdtId) + listener)
   }
 
+  def publish(event: ConvergentReplicatedDataType): Unit = {
+    scala.collection.JavaConversions.collectionAsScalaIterable(nodes.values).foreach { _ ! event}
+  }
+
   private[crdt] def publishChange(json: JsValue): Unit = {
     scala.collection.JavaConversions.collectionAsScalaIterable(nodes.values).foreach { _ ! stringify(json) }
   }
