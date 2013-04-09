@@ -1,12 +1,11 @@
-Akka CRDT
-=========
+# Akka CRDT
+
 Server-managed CRDT implementation for Akka
 
-TODO
-====
+## TODO
 
-Op-based
---------
+### Op-based
+
 Specification 5 op-based Counter
 Specification 9 Op-based LWW-Register
 Specification 13 U-Set: Op-based 2P-Set with unique elements
@@ -18,8 +17,8 @@ Specification 18 Add-Remove Partial Order
 Specification 19 Replicated Growable Array (RGA)
 Specification 21 Op-based Observed-Remove Shopping Cart (OR-Cart)
 
-State-based
------------
+### State-based
+
 DONE Specification 6  State-based increment-only counter
 DONE Specification 7  State-based PN-Counter
 Specification 8       State-based Last-Writer-Wins Register (LWW-Register)
@@ -27,20 +26,23 @@ Specification 10      State-based Multi-Value Register (MV-Register)
 DONE Specification 11 State-based grow-only Set (G-Set)
 DONE Specification 12 State-based 2P-Set
 
-Garbage Collection
-------------------
+### Garbage Collection
 
-Reliable Broadcast
-------------------
+### Reliable Broadcast
 
+### Misc
 
-DOCUMENTATION
-=============
-Sets
-===
+Add "format": "string"/"json"/"binary"
+Is java.util.UUID a good id generator? 
+How should we manage JSON marshalling errors?
+Fix documentation
+Support DELETE of a CRDT?
 
-G-Set
----
+# DOCUMENTATION
+
+## Sets
+
+### G-Set
 
 Set union is commutative and convergent; hence it is always safe to have
 simultaneous writes to a set *which only allows addition*. You cannot remove an
