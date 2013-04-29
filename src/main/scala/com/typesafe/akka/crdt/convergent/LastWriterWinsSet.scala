@@ -2,7 +2,7 @@
  * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
  */
 
-package com.typesafe.akka.crdt.state
+package com.typesafe.akka.crdt.commutative
 
 import scala.collection.immutable
 
@@ -58,61 +58,46 @@ In this set:
 - c was created after deletion; it exists
 - d was created and deleted at the same time. Bias a means we prefer adds, so it exists.
 */
-case class LastWriterWinsSet[T] private (
+case class LastWriterWinsSet private (
   id: String,
-  private[crdt] val increments: AddSet[T],
-  private[crdt] val decrements: AddSet[T]) extends ConvergentReplicatedDataTypeSet[T] {
+  private[crdt] val increments: AddSet,
+  private[crdt] val decrements: AddSet) extends ConvergentReplicatedDataTypeSet {
 
   val `type`: String = "lww-set"
 
-  def +(element: T): LastWriterWinsSet[T] = {
+  def +(element: JsValue): LastWriterWinsSet = {
     if ((increments contains element) && (decrements contains element)) throw new IllegalStateException(s"Can not add $element - already removed from set") // was previously removed
     else new LastWriterWinsSet(id, increments + element, decrements)
   }
 
-  def -(element: T): LastWriterWinsSet[T] = {
+  def -(element: JsValue): LastWriterWinsSet = {
     if (increments contains element) new LastWriterWinsSet(id, increments, decrements + element)
     else throw new IllegalStateException(s"Can not remove $element - not in set")
   }
 
-  def merge(that: LastWriterWinsSet[T]): LastWriterWinsSet[T] =
+  def merge(that: LastWriterWinsSet): LastWriterWinsSet =
     new LastWriterWinsSet(id, that.increments.merge(this.increments), that.decrements.merge(this.decrements))
 
-  def toSet: immutable.Set[T] = increments.toSet -- decrements.toSet
+  def toSet: immutable.Set[JsValue] = increments.toSet -- decrements.toSet
 }
 
 object LastWriterWinsSet {
-  def apply[T](): LastWriterWinsSet[T] = {
+  def apply[T](): LastWriterWinsSet = {
     apply(UUID.randomUUID.toString)
   }
 
-  def apply[T](id: String): LastWriterWinsSet[T] = {
-    new LastWriterWinsSet(id, AddSet[T](id = id + "/inc"), AddSet[T](id = id + "/dec"))
+  def apply[T](id: String): LastWriterWinsSet = {
+    new LastWriterWinsSet(id, AddSet(id = id + "/inc"), AddSet(id = id + "/dec"))
   }
 
-  implicit object stringFormat extends Format[LastWriterWinsSet[String]] {
-    def reads(json: JsValue): JsResult[LastWriterWinsSet[String]] = JsSuccess(new LastWriterWinsSet(
+  implicit object jsValueFormat extends Format[LastWriterWinsSet] {
+    def reads(json: JsValue): JsResult[LastWriterWinsSet] = JsSuccess(new LastWriterWinsSet(
       (json \ "id").as[String],
-      (json \ "increments").as[AddSet[String]],
-      (json \ "decrements").as[AddSet[String]]
+      (json \ "increments").as[AddSet],
+      (json \ "decrements").as[AddSet]
     ))
 
-    def writes(set: LastWriterWinsSet[String]): JsValue = JsObject(Seq(
-      "type" -> JsString(set.`type`),
-      "id" -> JsString(set.id),
-      "increments" -> Json.toJson(set.increments),
-      "decrements" -> Json.toJson(set.decrements)
-    ))
-  }
-
-  implicit object jsValueFormat extends Format[LastWriterWinsSet[JsValue]] {
-    def reads(json: JsValue): JsResult[LastWriterWinsSet[JsValue]] = JsSuccess(new LastWriterWinsSet(
-      (json \ "id").as[String],
-      (json \ "increments").as[AddSet[JsValue]],
-      (json \ "decrements").as[AddSet[JsValue]]
-    ))
-
-    def writes(set: LastWriterWinsSet[JsValue]): JsValue = JsObject(Seq(
+    def writes(set: LastWriterWinsSet): JsValue = JsObject(Seq(
       "type" -> JsString(set.`type`),
       "id" -> JsString(set.id),
       "increments" -> Json.toJson(set.increments),

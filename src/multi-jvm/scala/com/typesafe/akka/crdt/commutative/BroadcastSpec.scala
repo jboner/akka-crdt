@@ -1,7 +1,7 @@
 /**
  *  Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
  */
-package com.typesafe.akka.crdt.state
+package com.typesafe.akka.crdt.commutative
 
 import akka.remote.testkit.MultiNodeConfig
 
@@ -62,7 +62,7 @@ class BroadcastSpec extends MultiNodeSpec(BroadcastSpecConfig) with ScalaTestMul
         crdt.publish(IncrementingCounter())
       }
       runOn(node2) {
-        crdt.publish(AddSet[String]())
+        crdt.publish(AddSet())
       }
 
       enterBarrier("finished")

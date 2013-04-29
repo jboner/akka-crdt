@@ -2,7 +2,7 @@
  * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
  */
 
-package com.typesafe.akka.crdt.state
+package com.typesafe.akka.crdt.commutative
 
 import scala.collection.JavaConversions.collectionAsScalaIterable
 
@@ -43,8 +43,8 @@ class ConvergentReplicatedDataTypeStorage(val sys: ExtendedActorSystem) extends 
 
   private val gCounters = new ConcurrentHashMap[String, IncrementingCounter]
   private val pnCounters = new ConcurrentHashMap[String, IncrementingDecrementingCounter]
-  private val gSet = new ConcurrentHashMap[String, AddSet[_]]
-  private val ppSet = new ConcurrentHashMap[String, AddRemoveSet[_]]
+  private val gSet = new ConcurrentHashMap[String, AddSet]
+  private val ppSet = new ConcurrentHashMap[String, AddRemoveSet]
 
   private val changeListeners = new ConcurrentHashMap[String, Set[ActorRef]]
 
@@ -149,7 +149,7 @@ class ConvergentReplicatedDataTypeChangeListener extends Actor with ActorLogging
           //   case "binary" => json.as[AddSet[ByteString]]
         case "2p-set" =>
           // FIXME add type to JSON (string, json and binary/bytestring) then dispatch on it here
-          val set = json.as[AddRemoveSet[String]]
+          val set = json.as[AddRemoveSet]
           log.info("=================>>>> Received updated AddRemoveSet {}", set)
 
         case _ => error("Received JSON is not a CvRDT: " + jsonString)
