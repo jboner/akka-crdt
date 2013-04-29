@@ -14,7 +14,7 @@ import java.util.UUID
  * Implements a ConvergentReplicatedDataType 'Add Set' also called a 'G-Set'. You cannot remove an element of a G-Set.
  */
 case class AddSet[T](
-  val id: String = UUID.randomUUID.toString,
+  id: String = UUID.randomUUID.toString,
   private[crdt] val state: Set[T] = Set.empty[T]) extends ConvergentReplicatedDataTypeSet[T] {
 
   val `type`: String = "g-set"

@@ -19,7 +19,7 @@ import java.util.UUID
  * precedence over adds.
  */
 case class AddRemoveSet[T](
-  val id: String,
+  id: String,
   private[crdt] val increments: AddSet[T],
   private[crdt] val decrements: AddSet[T]) extends ConvergentReplicatedDataTypeSet[T] {
 

@@ -59,7 +59,7 @@ In this set:
 - d was created and deleted at the same time. Bias a means we prefer adds, so it exists.
 */
 case class LastWriterWinsSet[T] private (
-  val id: String,
+  id: String,
   private[crdt] val increments: AddSet[T],
   private[crdt] val decrements: AddSet[T]) extends ConvergentReplicatedDataTypeSet[T] {
 

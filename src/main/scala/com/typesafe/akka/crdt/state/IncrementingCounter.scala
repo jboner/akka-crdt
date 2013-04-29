@@ -18,7 +18,7 @@ import java.util.UUID
  * clock merge). The value of the counter is the sum of all actor counts.
  */
 case class IncrementingCounter(
-  val id: String = UUID.randomUUID.toString,
+  id: String = UUID.randomUUID.toString,
   private[crdt] val state: Map[String, Int] = Map.empty[String, Int]) extends ConvergentReplicatedDataTypeCounter {
 
   val `type`: String = "g-counter"

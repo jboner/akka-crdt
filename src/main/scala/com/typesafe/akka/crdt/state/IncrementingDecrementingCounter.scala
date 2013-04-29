@@ -18,7 +18,7 @@ import java.util.UUID
  * the value of the N counter.
  */
 case class IncrementingDecrementingCounter private (
-  val id: String,
+  id: String,
   private[crdt] val increments: IncrementingCounter,
   private[crdt] val decrements: IncrementingCounter) extends ConvergentReplicatedDataTypeCounter {
 
