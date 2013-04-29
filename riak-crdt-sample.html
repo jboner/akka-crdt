@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="jquery-2.0.0.min.js"></script>
+<script type="text/javascript">
+var t = window.setInterval(function() {
+    get_counter();}, 500);
+
+function get_counter() {
+$.ajax({
+  url: "/buckets/demo/counters/demo",
+  cache: false,
+  dataType: "text",
+  success: function(data) {
+    $('#counter').text(data);
+  }});
+}
+
+ $(document).ready(function() {
+   $("#increment").click(function() {
+     $.ajax({
+      type: 'POST',
+      data: '1',
+      url: '/buckets/demo/counters/demo',
+      success: function() { get_counter() },
+      cache:false,
+      dataType: 'text'
+   });
+  });
+});
+
+ $(document).ready(function() {
+   $("#decrement").click(function() {
+     $.ajax({
+      type: 'POST',
+      data: '-1',
+      url: '/buckets/demo/counters/demo',
+      success: function() { get_counter() },
+      cache:false,
+      dataType: 'text'
+   });
+  });
+});
+
+</script>
+<style>
+body {
+  background: #fbfbfb;
+  font-family:'titillium', verdana, arial, sans-serif;
+  font-weight: normal;
+  line-height: 1;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family:'titillium', verdana, arial, sans-serif;
+  font-weight: bold;
+  color: #444;
+}
+
+input, textarea {
+    border: none;
+}
+input {
+  color: #fff;
+}
+
+ #counter {
+background: #384945;
+  text-align: center;
+   margin: 0 auto;
+    color: #fe9925;
+    font-family:'titillium', verdana, arial, sans-serif;
+    font-weight: bold;
+    font-size: 84pt;
+   width: 30%;
+   padding: .2em
+  }
+
+#controls {
+     padding: 3em;
+    text-align: center;
+}
+
+</style>
+<title>Riak KV Counters Demo</title>
+</head>
+<body>
+<div id="counter">
+</div>
+<div id="controls">
+<a href="#" id="increment">Increment</a>&nbsp;
+<a href="#" id="decrement">Decrement</a>
+</div>
+</body>
+</html>
