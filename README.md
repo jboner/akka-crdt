@@ -27,8 +27,10 @@ DONE Specification 11 State-based grow-only Set (G-Set)
 DONE Specification 12 State-based 2P-Set
 
 ### Garbage Collection
+Needs consensus? Performed by Leader/Singleton?
 
 ### Reliable Broadcast
+Using eventsourced
 
 ### Misc
 
