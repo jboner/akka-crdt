@@ -4,9 +4,7 @@ Server-managed CRDT implementation for Akka
 
 ## TODO
 
-The "Specification" below refers to the paper 'A comprehensive study of Convergent and Commutative Replicated Data Types' by Mark Shapiro et. al.
-
-[http://hal.upmc.fr/docs/00/55/55/88/PDF/techreport.pdf]
+The "Specification" below refers to the paper (http://hal.upmc.fr/docs/00/55/55/88/PDF/techreport.pdf)[A comprehensive study of Convergent and Commutative Replicated Data Types] by Mark Shapiro et. al.
 
 ### Convergent (state-based)
 
@@ -32,9 +30,11 @@ The "Specification" below refers to the paper 'A comprehensive study of Converge
 * Specification 21 Op-based Observed-Remove Shopping Cart (OR-Cart)
 
 ### Garbage Collection
+
 * Needs consensus? Performed by Leader/Singleton?
 
 ### Reliable Broadcast
+
 * Using eventsourced
 
 ### Misc
