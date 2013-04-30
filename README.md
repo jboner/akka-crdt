@@ -4,41 +4,46 @@ Server-managed CRDT implementation for Akka
 
 ## TODO
 
-### Op-based
+The "Specification" below refers to the paper 'A comprehensive study of Convergent and Commutative Replicated Data Types' by Mark Shapiro et. al.
 
-Specification 5 op-based Counter
-Specification 9 Op-based LWW-Register
-Specification 13 U-Set: Op-based 2P-Set with unique elements
-Specification 14 Molli, Weiss, Skaf Set
-Specification 15 Op-based Observed-Remove Set (OR-Set)
-Specification 16 2P2P-Graph (op-based)
-Specification 17 Add-only Monotonic DAG (op-based)
-Specification 18 Add-Remove Partial Order
-Specification 19 Replicated Growable Array (RGA)
-Specification 21 Op-based Observed-Remove Shopping Cart (OR-Cart)
+[http://hal.upmc.fr/docs/00/55/55/88/PDF/techreport.pdf]
 
-### State-based
+### Convergent (state-based)
 
-DONE Specification 6  State-based increment-only counter
-DONE Specification 7  State-based PN-Counter
-Specification 8       State-based Last-Writer-Wins Register (LWW-Register)
-Specification 10      State-based Multi-Value Register (MV-Register)
-DONE Specification 11 State-based grow-only Set (G-Set)
-DONE Specification 12 State-based 2P-Set
+* DONE Specification 6  State-based increment-only counter
+* DONE Specification 7  State-based PN-Counter
+* Specification 8       State-based Last-Writer-Wins Register (LWW Register)
+* Specification 10      State-based Multi-Value Register (MV-Register)
+* DONE Specification 11 State-based grow-only Set (G-Set)
+* DONE Specification 12 State-based 2P-Set
+* DONE Use DistributedPubSub for broadcast of changes
+
+### Commutative (ops-based)
+
+* Specification 5 op-based Counter
+* Specification 9 Op-based LWW-Register
+* Specification 13 U-Set: Op-based 2P-Set with unique elements
+* Specification 14 Molli, Weiss, Skaf Set
+* Specification 15 Op-based Observed-Remove Set (OR-Set)
+* Specification 16 2P2P-Graph (op-based)
+* Specification 17 Add-only Monotonic DAG (op-based)
+* Specification 18 Add-Remove Partial Order
+* Specification 19 Replicated Growable Array (RGA)
+* Specification 21 Op-based Observed-Remove Shopping Cart (OR-Cart)
 
 ### Garbage Collection
-Needs consensus? Performed by Leader/Singleton?
+* Needs consensus? Performed by Leader/Singleton?
 
 ### Reliable Broadcast
-Using eventsourced
+* Using eventsourced
 
 ### Misc
 
-Add "format": "string"/"json"/"binary"
-Is java.util.UUID a good id generator? 
-How should we manage JSON marshalling errors?
-Fix documentation
-Support DELETE of a CRDT?
+* Add "format": "string"/"json"/"binary"
+* Is java.util.UUID a good id generator? 
+* How should we manage JSON marshalling errors?
+* Fix documentation
+* Support DELETE of a CRDT?
 
 # DOCUMENTATION
 
@@ -46,9 +51,7 @@ Support DELETE of a CRDT?
 
 ### G-Set
 
-Set union is commutative and convergent; hence it is always safe to have
-simultaneous writes to a set *which only allows addition*. You cannot remove an
-element of a G-Set.
+Set union is commutative and convergent; hence it is always safe to have simultaneous writes to a set *which only allows addition*. You cannot remove an element of a G-Set.
 
 JSON:
 
@@ -62,11 +65,7 @@ JSON:
 2P-Set
 ---
 
-2-phase sets consist of two g-sets: one for adding, and another for removing.
-To add an element, add it to the add set A. To remove e, add e to the remove
-set R.  An element can only be added once, and only removed once. Elements can
-only be removed if they are present in the set. Removes take precedence over
-adds.
+2-phase sets consist of two g-sets: one for adding, and another for removing. To add an element, add it to the add set A. To remove e, add e to the remove set R.  An element can only be added once, and only removed once. Elements can only be removed if they are present in the set. Removes take precedence over adds.
 
 JSON:
 
