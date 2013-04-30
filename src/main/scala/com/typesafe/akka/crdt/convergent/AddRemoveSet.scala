@@ -39,6 +39,8 @@ case class AddRemoveSet(
     AddRemoveSet(id, that.increments.merge(this.increments), that.decrements.merge(this.decrements))
 
   def toSet: immutable.Set[JsValue] = increments.toSet -- decrements.toSet
+
+  override def toString: String = Json.stringify(AddRemoveSet.format.writes(this))
 }
 
 object AddRemoveSet {
@@ -50,7 +52,7 @@ object AddRemoveSet {
     new AddRemoveSet(id, AddSet(id = id + "/inc"), AddSet(id = id + "/dec"))
   }
 
-  implicit object jsValueFormat extends Format[AddRemoveSet] {
+  implicit object format extends Format[AddRemoveSet] {
     def reads(json: JsValue): JsResult[AddRemoveSet] = JsSuccess(AddRemoveSet(
       (json \ "id").as[String],
       (json \ "increments").as[AddSet],
@@ -58,8 +60,8 @@ object AddRemoveSet {
     ))
 
     def writes(set: AddRemoveSet): JsValue = JsObject(Seq(
-      "type" -> JsString(set.`type`),
-      "id" -> JsString(set.id),
+      "type"       -> JsString(set.`type`),
+      "id"         -> JsString(set.id),
       "increments" -> Json.toJson(set.increments),
       "decrements" -> Json.toJson(set.decrements)
     ))

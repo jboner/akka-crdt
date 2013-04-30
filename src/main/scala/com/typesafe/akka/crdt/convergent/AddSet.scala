@@ -24,19 +24,21 @@ case class AddSet(
   def merge(that: AddSet): AddSet = AddSet(id, that.state ++ this.state)
 
   def toSet: immutable.Set[JsValue] = state
+
+  override def toString: String = Json.stringify(AddSet.format.writes(this))
 }
 
 object AddSet {
 
-  implicit object jsValueFormat extends Format[AddSet] {
+  implicit object format extends Format[AddSet] {
     def reads(json: JsValue): JsResult[AddSet] = JsSuccess(AddSet(
       (json \ "id").as[String],
       (json \ "state").as[Set[JsValue]]
     ))
 
     def writes(set: AddSet): JsValue = JsObject(Seq(
-      "type" -> JsString(set.`type`),
-      "id" -> JsString(set.id),
+      "type"  -> JsString(set.`type`),
+      "id"    -> JsString(set.id),
       "state" -> Json.toJson(set.state)
     ))
   }

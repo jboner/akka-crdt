@@ -36,6 +36,8 @@ case class IncrementingDecrementingCounter private (
 
   def merge(that: IncrementingDecrementingCounter): IncrementingDecrementingCounter =
     new IncrementingDecrementingCounter(id, that.increments.merge(this.increments), that.decrements.merge(this.decrements))
+
+  override def toString: String = Json.stringify(IncrementingDecrementingCounter.format.writes(this))
 }
 
 object IncrementingDecrementingCounter {
@@ -56,8 +58,8 @@ object IncrementingDecrementingCounter {
     ))
 
     def writes(counter: IncrementingDecrementingCounter): JsValue = JsObject(Seq(
-      "type" -> JsString(counter.`type`),
-      "id" -> JsString(counter.id),
+      "type"       -> JsString(counter.`type`),
+      "id"         -> JsString(counter.id),
       "increments" -> Json.toJson(counter.increments),
       "decrements" -> Json.toJson(counter.decrements)
     ))

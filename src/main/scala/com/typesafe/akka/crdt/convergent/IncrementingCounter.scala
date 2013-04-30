@@ -34,6 +34,8 @@ case class IncrementingCounter(
   def merge(that: IncrementingCounter): IncrementingCounter = {
     that.state.foldLeft(this) { (acc, record) => acc + (record._1, record._2) }
   }
+
+  override def toString: String = Json.stringify(IncrementingCounter.format.writes(this))
 }
 
 object IncrementingCounter {
@@ -44,8 +46,8 @@ object IncrementingCounter {
     ))
 
     def writes(counter: IncrementingCounter): JsValue = JsObject(Seq(
-      "type" -> JsString(counter.`type`),
-      "id" -> JsString(counter.id),
+      "type"  -> JsString(counter.`type`),
+      "id"    -> JsString(counter.id),
       "state" -> Json.toJson(counter.state)
     ))
   }
