@@ -4,7 +4,7 @@ Server-managed CRDT implementation for Akka
 
 ## TODO
 
-The "Specification" below refers to the paper (http://hal.upmc.fr/docs/00/55/55/88/PDF/techreport.pdf)[A comprehensive study of Convergent and Commutative Replicated Data Types] by Mark Shapiro et. al.
+The "Specification" below refers to the paper [A comprehensive study of Convergent and Commutative Replicated Data Types](http://hal.upmc.fr/docs/00/55/55/88/PDF/techreport.pdf) by Mark Shapiro et. al.
 
 ### Convergent (state-based)
 
