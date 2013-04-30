@@ -1,7 +1,7 @@
 /**
  *  Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
  */
-package com.typesafe.akka.crdt.commutative
+package com.typesafe.akka.crdt.convergent
 
 import akka.remote.testkit.MultiNodeConfig
 
@@ -48,23 +48,31 @@ class BroadcastSpec extends MultiNodeSpec(BroadcastSpecConfig) with ScalaTestMul
       val cluster = Cluster(system)
       val crdt = ConvergentReplicatedDataTypeStorage(system)
 
+      runOn(node1) {
+        cluster join node1
+      }
+      enterBarrier("node1-started")
+
       runOn(node2) {
         cluster join node1
       }
+      enterBarrier("node2-started")
+
       runOn(node3) {
         cluster join node1
       }
+      enterBarrier("node3-started")
 
       Thread.sleep(5000)
 
       runOn(node1) {
-        crdt.publish(IncrementingCounter())
+        crdt.store(IncrementingCounter())
       }
-//      runOn(node2) {
-//        crdt.publish(AddSet())
-//      }
+      runOn(node2) {
+        crdt.store(AddSet())
+      }
 
-      Thread.sleep(10000)
+      Thread.sleep(5000)
 
       enterBarrier("finished")
     }

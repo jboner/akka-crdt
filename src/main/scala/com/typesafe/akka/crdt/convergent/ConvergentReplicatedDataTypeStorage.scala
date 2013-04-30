@@ -2,7 +2,7 @@
  * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
  */
 
-package com.typesafe.akka.crdt.commutative
+package com.typesafe.akka.crdt.convergent
 
 import akka.actor._
 import akka.event.{Logging, LogSource}
@@ -13,7 +13,10 @@ import akka.contrib.pattern.DistributedPubSubMediator._
 import play.api.libs.json.Json._
 import play.api.libs.json._
 
+import scala.util.Try
+
 import java.util.concurrent.ConcurrentHashMap
+
 
 object ConvergentReplicatedDataTypeStorage
   extends ExtensionId[ConvergentReplicatedDataTypeStorage]
@@ -39,10 +42,11 @@ class ConvergentReplicatedDataTypeStorage(val sys: ExtendedActorSystem) extends 
 
   private val settings = new ConvergentReplicatedDataTypeSettings(system.settings.config, system.name)
 
-  private val gCounters = new ConcurrentHashMap[String, IncrementingCounter]
-  private val pnCounters = new ConcurrentHashMap[String, IncrementingDecrementingCounter]
-  private val gSet = new ConcurrentHashMap[String, AddSet]
-  private val ppSet = new ConcurrentHashMap[String, AddRemoveSet]
+  private val cvrdts = new ConcurrentHashMap[String, ConvergentReplicatedDataType]
+  // private val gCounters = new ConcurrentHashMap[String, IncrementingCounter]
+  // private val pnCounters = new ConcurrentHashMap[String, IncrementingDecrementingCounter]
+  // private val gSet = new ConcurrentHashMap[String, AddSet]
+  // private val ppSet = new ConcurrentHashMap[String, AddRemoveSet]
 
   private val changeListeners = new ConcurrentHashMap[String, Set[ActorRef]]
 
@@ -55,16 +59,17 @@ class ConvergentReplicatedDataTypeStorage(val sys: ExtendedActorSystem) extends 
     system.stop(publisher)
   }
 
-  def publish(crdt: IncrementingCounter): Unit             = publish(toJson(crdt))
-  def publish(crdt: IncrementingDecrementingCounter): Unit = publish(toJson(crdt))
-  def publish(crdt: AddSet): Unit                          = publish(toJson(crdt))
-  def publish(crdt: AddRemoveSet): Unit                    = publish(toJson(crdt))
-  def publish(json: JsValue): Unit                         = publisher ! json
+  def store(crdt: IncrementingCounter): Unit             = store(toJson(crdt))
+  def store(crdt: IncrementingDecrementingCounter): Unit = store(toJson(crdt))
+  def store(crdt: AddSet): Unit                          = store(toJson(crdt))
+  def store(crdt: AddRemoveSet): Unit                    = store(toJson(crdt))
+  def store(json: JsValue): Unit                         = publisher ! json
 
   // FIXME implement me
-  def crdtFor(crdtId: String): ConvergentReplicatedDataType = {
-    IncrementingCounter()
-  }
+  // def find(crdtId: String, ): Option[] = {
+  //   if (cvrdts.contains(crdtId)) cvrdts.get(crdtId).asInstanceOf[T]
+  //   else throw new NoSuchElementException("Could not find a CvRDT with id [" + crdtId + "]")
+  // }
 
   def subscribe(crdtId: String, listener: ActorRef): Unit = {
     if (!changeListeners.contains(crdtId)) throw new IllegalArgumentException(s"CRDT with id $crdtId can not be found")
