@@ -1,11 +1,11 @@
 /**
  *  Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
  */
-package com.typesafe.akka.crdt.convergent
+package akka.crdt.convergent
 
 import akka.remote.testkit.MultiNodeConfig
 
-import com.typesafe.akka.crdt._
+import akka.crdt._
 
 import akka.remote.testkit.MultiNodeSpec
 import akka.testkit.ImplicitSender
@@ -47,6 +47,8 @@ class BroadcastSpec extends MultiNodeSpec(BroadcastSpecConfig) with ScalaTestMul
     "broadcast all CvRDT changes to all cluster nodes" in {
       val cluster = Cluster(system)
       val crdt = ConvergentReplicatedDataTypeStorage(system)
+
+      println("-----------" + crdt.findById[IncrementingCounter]("hello"))
 
       runOn(node1) {
         cluster join node1

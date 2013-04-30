@@ -2,10 +2,11 @@
  * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
  */
 
-package com.typesafe.akka.crdt.convergent
+package akka.crdt.convergent
 
 import akka.actor._
 import akka.event.{Logging, LogSource}
+import akka.util.Reflect
 import akka.contrib.pattern.DistributedPubSubExtension
 import akka.contrib.pattern.DistributedPubSubMediator
 import akka.contrib.pattern.DistributedPubSubMediator._
@@ -14,9 +15,9 @@ import play.api.libs.json.Json._
 import play.api.libs.json._
 
 import scala.util.Try
+import scala.reflect.ClassTag
 
 import java.util.concurrent.ConcurrentHashMap
-
 
 object ConvergentReplicatedDataTypeStorage
   extends ExtensionId[ConvergentReplicatedDataTypeStorage]
@@ -35,7 +36,7 @@ object ConvergentReplicatedDataTypeStorage
   }
 }
 
-class ConvergentReplicatedDataTypeStorage(val sys: ExtendedActorSystem) extends Extension {
+class ConvergentReplicatedDataTypeStorage(sys: ExtendedActorSystem) extends Extension {
   private implicit val system = sys
 
   val log = Logging(sys, this)
@@ -43,10 +44,6 @@ class ConvergentReplicatedDataTypeStorage(val sys: ExtendedActorSystem) extends 
   private val settings = new ConvergentReplicatedDataTypeSettings(system.settings.config, system.name)
 
   private val cvrdts = new ConcurrentHashMap[String, ConvergentReplicatedDataType]
-  // private val gCounters = new ConcurrentHashMap[String, IncrementingCounter]
-  // private val pnCounters = new ConcurrentHashMap[String, IncrementingDecrementingCounter]
-  // private val gSet = new ConcurrentHashMap[String, AddSet]
-  // private val ppSet = new ConcurrentHashMap[String, AddRemoveSet]
 
   private val changeListeners = new ConcurrentHashMap[String, Set[ActorRef]]
 
@@ -59,22 +56,55 @@ class ConvergentReplicatedDataTypeStorage(val sys: ExtendedActorSystem) extends 
     system.stop(publisher)
   }
 
-  def store(crdt: IncrementingCounter): Unit             = store(toJson(crdt))
-  def store(crdt: IncrementingDecrementingCounter): Unit = store(toJson(crdt))
-  def store(crdt: AddSet): Unit                          = store(toJson(crdt))
-  def store(crdt: AddRemoveSet): Unit                    = store(toJson(crdt))
-  def store(json: JsValue): Unit                         = publisher ! json
+  def store(crdt: IncrementingCounter): Unit = {
+    cvrdts.put(crdt.id, crdt)
+    store(toJson(crdt))
+  }
 
-  // FIXME implement me
-  // def find(crdtId: String, ): Option[] = {
-  //   if (cvrdts.contains(crdtId)) cvrdts.get(crdtId).asInstanceOf[T]
-  //   else throw new NoSuchElementException("Could not find a CvRDT with id [" + crdtId + "]")
-  // }
+  def store(crdt: IncrementingDecrementingCounter): Unit = {
+    cvrdts.put(crdt.id, crdt)
+    store(toJson(crdt))
+  }
+
+  def store(crdt: AddSet): Unit = {
+    cvrdts.put(crdt.id, crdt)
+    store(toJson(crdt))
+  }
+
+  def store(crdt: AddRemoveSet): Unit = {
+    cvrdts.put(crdt.id, crdt)
+    store(toJson(crdt))
+  }
+
+  def findById[T : ClassTag](crdtId: String): Try[T] = Try {
+    val crdt =
+      if (cvrdts.contains(crdtId)) cvrdts.get(crdtId)
+      else throw new NoSuchElementException("Could not find a CvRDT with id [" + crdtId + "]")
+    val clazz = implicitly[ClassTag[T]].runtimeClass
+    if (isCRDT(clazz)) crdt.asInstanceOf[T]
+    else throw new ClassCastException("Could find CvRDT with id [" + crdtId + "] and type [" + clazz + "]")
+  }
+
+  def create[T : ClassTag](crdtId: String): Try[T] = Try {
+    if (cvrdts.contains(crdtId)) throw new IllegalArgumentException("Can't create a new CvRDT with id [" + crdtId + "], since it already exists")
+    val clazz = implicitly[ClassTag[T]].runtimeClass
+    if (isCRDT(clazz)) Reflect.instantiate(clazz, crdtId).asInstanceOf[T]
+    else throw new ClassCastException("Could create new CvRDT with id [" + crdtId + "] and type [" + clazz + "]")
+  }
 
   def subscribe(crdtId: String, listener: ActorRef): Unit = {
     if (!changeListeners.contains(crdtId)) throw new IllegalArgumentException(s"CRDT with id $crdtId can not be found")
     changeListeners.put(crdtId, changeListeners.get(crdtId) + listener)
   }
+
+  private def isCRDT(clazz: Class[_]): Boolean = {
+    classOf[IncrementingCounter].isAssignableFrom(clazz) ||
+    classOf[IncrementingDecrementingCounter].isAssignableFrom(clazz) ||
+    classOf[AddSet].isAssignableFrom(clazz) ||
+    classOf[AddRemoveSet].isAssignableFrom(clazz)
+  }
+
+  private def store(json: JsValue): Unit = publisher ! json
 }
 
 /**

@@ -2,7 +2,7 @@
  * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
  */
 
-package com.typesafe.akka.crdt.convergent
+package akka.crdt.convergent
 
 import scala.collection.immutable
 
