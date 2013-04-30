@@ -22,15 +22,13 @@ object BuildSettings {
 }
 
 object Resolvers {
-  val typesafeReleasesRepo     = "Typesafe Releases Repo"     at "http://repo.typesafe.com/typesafe/releases/"
-  val typesafeSnapshotsRepo    = "Typesafe Snaphots Repo"     at "http://repo.typesafe.com/typesafe/snapshots/"
   val eligosourceReleasesRepo  = "Eligosource Releases Repo"  at "http://repo.eligotech.com/nexus/content/repositories/eligosource-releases/"
   val eligosourceSnapshotsRepo = "Eligosource Snapshots Repo" at "http://repo.eligotech.com/nexus/content/repositories/eligosource-snapshots/"
   val temporary                = "Temporary Play JSON repo"   at "https://github.com/mandubian/mandubian-mvn/raw/master/snapshots/"
 }
 
 object Versions {
-  val AkkaVersion         = "2.1.2"
+  val AkkaVersion         = "2.2-M3"
   val EventSourcedVersion = "0.5-M2"
 }
 
@@ -38,14 +36,13 @@ object Dependencies {
   import Versions._
   lazy val akkaActor         = "com.typesafe.akka" %% "akka-actor"                 % AkkaVersion         % "compile"
   lazy val akkaCluster       = "com.typesafe.akka" %% "akka-cluster-experimental"  % AkkaVersion         % "compile"
+  lazy val akkaContrib       = "com.typesafe.akka" %% "akka-contrib"               % AkkaVersion         % "compile"
   lazy val playJson          = "play"              %% "play-json"                  % "2.2-SNAPSHOT"      % "compile"
-  lazy val eventSourced      = "org.eligosource"   %% "eventsourced-core"          % EventSourcedVersion % "compile"
-  lazy val eventSourcedInMem = "org.eligosource"   %% "eventsourced-journal-inmem" % EventSourcedVersion % "compile"
-  //lazy val eventSourcedJournalIO = "org.eligosource" %% "eventsourced-journal-journalio" % EventSourcedVersion % "compile"
-  //lazy val eventSourcedLevelDB   = "org.eligosource" %% "eventsourced-journal-leveldb"   % EventSourcedVersion % "compile"
+  // lazy val eventSourced      = "org.eligosource"   %% "eventsourced-core"          % EventSourcedVersion % "compile"
+  // lazy val eventSourcedInMem = "org.eligosource"   %% "eventsourced-journal-inmem" % EventSourcedVersion % "compile"
 
-  lazy val scalaTest         = "org.scalatest"     %% "scalatest"                      % "1.9"               % "test"
-  lazy val akkaMultiNodeTest = "com.typesafe.akka" %% "akka-remote-tests-experimental" % AkkaVersion         % "test"
+  lazy val scalaTest         = "org.scalatest"     %% "scalatest"         % "1.9"               % "test"
+  lazy val akkaMultiNodeTest = "com.typesafe.akka" %% "akka-remote-tests" % AkkaVersion         % "test"
 }
 
 object ExampleBuild extends Build {
@@ -57,8 +54,9 @@ object ExampleBuild extends Build {
     "akka-crdt",
     file("."),
     settings = buildSettings ++ multiJvmSettings ++ Seq (
-      resolvers            := Seq (typesafeReleasesRepo, typesafeSnapshotsRepo, eligosourceReleasesRepo, eligosourceSnapshotsRepo, temporary),
-      libraryDependencies ++= Seq (akkaActor, akkaCluster, playJson, eventSourced, eventSourcedInMem),
+      resolvers            := Seq (eligosourceReleasesRepo, eligosourceSnapshotsRepo, temporary),
+      libraryDependencies ++= Seq (akkaActor, akkaCluster, akkaContrib, playJson),
+      // libraryDependencies ++= Seq (akkaActor, akkaCluster, akkaContrib, playJson, eventSourced, eventSourcedInMem),
       libraryDependencies ++= Seq (scalaTest, akkaMultiNodeTest)
     )
   ) configs(MultiJvm)

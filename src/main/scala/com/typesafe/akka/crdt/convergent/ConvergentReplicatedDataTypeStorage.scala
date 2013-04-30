@@ -7,9 +7,10 @@ package com.typesafe.akka.crdt.commutative
 import scala.collection.JavaConversions.collectionAsScalaIterable
 
 import akka.actor._
-import akka.cluster.Cluster
-import akka.cluster.ClusterEvent
-import akka.cluster.ClusterEvent._
+import akka.event.{Logging, LogSource}
+import akka.contrib.pattern.DistributedPubSubExtension
+import akka.contrib.pattern.DistributedPubSubMediator
+import akka.contrib.pattern.DistributedPubSubMediator._
 
 import play.api.libs.json.Json._
 import play.api.libs.json._
@@ -26,20 +27,19 @@ object ConvergentReplicatedDataTypeStorage
 
   override def createExtension(system: ExtendedActorSystem): ConvergentReplicatedDataTypeStorage =
     new ConvergentReplicatedDataTypeStorage(system)
+
+  implicit val logSource: LogSource[AnyRef] = new LogSource[AnyRef] {
+    def genString(o: AnyRef): String = o.getClass.getName
+    override def getClazz(o: AnyRef): Class[_] = o.getClass
+  }
 }
 
-/**
- * Example:
- * {{{
- * }}}
- */
 class ConvergentReplicatedDataTypeStorage(val sys: ExtendedActorSystem) extends Extension {
   private implicit val system = sys
 
-  private val settings = new ConvergentReplicatedDataTypeSettings(system.settings.config, system.name)
-  private val cluster = Cluster(system)
+  val log = Logging(sys, this)
 
-  private val nodes = new ConcurrentHashMap[Address, ActorRef]
+  private val settings = new ConvergentReplicatedDataTypeSettings(system.settings.config, system.name)
 
   private val gCounters = new ConcurrentHashMap[String, IncrementingCounter]
   private val pnCounters = new ConcurrentHashMap[String, IncrementingDecrementingCounter]
@@ -48,22 +48,42 @@ class ConvergentReplicatedDataTypeStorage(val sys: ExtendedActorSystem) extends 
 
   private val changeListeners = new ConcurrentHashMap[String, Set[ActorRef]]
 
-  private val clusterListenerDaemon = system.actorOf(Props(new Actor with ActorLogging {
+  private val publisher = system.actorOf(Props[Publisher], name = "crdt:publisher")
 
-    def register(address: Address) =
-      nodes.put(address, system.actorFor(s"${address.toString}/user/cvrdt-change-listener"))
+  private val subscriber = system.actorOf(Props(new Actor with ActorLogging {
+    val pubsub = DistributedPubSubExtension(context.system).mediator
 
-    def receive = {
-      case state: CurrentClusterState ⇒ state.members foreach { member => register(member.address) }
-      case MemberUp(member)           ⇒ register(member.address)
-      case MemberDowned(member)       ⇒ nodes.remove(member.address)
-      case MemberLeft(member)         ⇒ nodes.remove(member.address)
-      case MemberExited(member)       ⇒ nodes.remove(member.address)
-      case _: ClusterDomainEvent      ⇒ {} // ignore
+    override def preStart(): Unit = {
+      pubsub ! Subscribe("g-counter", self)
+      pubsub ! Subscribe("pn-counter", self)
+      pubsub ! Subscribe("g-set", self)
+      pubsub ! Subscribe("2p-set", self)
     }
-  }), name = "crdt:clusterListenerDaemon")
 
-  cluster.subscribe(clusterListenerDaemon, classOf[ClusterDomainEvent])
+    def receive: Receive = {
+      case SubscribeAck(Subscribe("g-counter", `self`)) ⇒
+      case SubscribeAck(Subscribe("pn-counter", `self`)) ⇒
+      case SubscribeAck(Subscribe("g-set", `self`)) ⇒
+      case SubscribeAck(Subscribe("2p-set", `self`)) ⇒
+    }
+  }), name = "crdt:subscriber")
+
+  // private val clusterListenerDaemon = system.actorOf(Props(new Actor with ActorLogging {
+
+  //   def register(address: Address) =
+  //     nodes.put(address, system.actorFor(s"${address.toString}/user/cvrdt-change-listener"))
+
+  //   def receive = {
+  //     case state: CurrentClusterState ⇒ state.members foreach { member => register(member.address) }
+  //     case MemberUp(member)           ⇒ register(member.address)
+  //     case MemberDowned(member)       ⇒ nodes.remove(member.address)
+  //     case MemberLeft(member)         ⇒ nodes.remove(member.address)
+  //     case MemberExited(member)       ⇒ nodes.remove(member.address)
+  //     case _: ClusterDomainEvent      ⇒ {} // ignore
+  //   }
+  // }), name = "crdt:clusterListenerDaemon")
+
+  // cluster.subscribe(clusterListenerDaemon, classOf[ClusterDomainEvent])
 
   /*
   **
@@ -97,12 +117,10 @@ private[cluster] final class ClusterCoreSupervisor extends Actor with ActorLoggi
   }
 }*/
 
-  private val changeListenerDaemon = system.actorOf(
-    Props[ConvergentReplicatedDataTypeChangeListener], name = "cvrdt-change-listener")
-
   def shutdown(): Unit = {
-    system.stop(changeListenerDaemon)
-    system.stop(clusterListenerDaemon)
+    log.info("Shutting down ConvergentReplicatedDataTypeStorage")
+    system.stop(subscriber)
+    system.stop(publisher)
   }
 
   // FIXME should be specialized
@@ -115,16 +133,15 @@ private[cluster] final class ClusterCoreSupervisor extends Actor with ActorLoggi
     changeListeners.put(crdtId, changeListeners.get(crdtId) + listener)
   }
 
-  def publish(event: ConvergentReplicatedDataType): Unit = {
-    scala.collection.JavaConversions.collectionAsScalaIterable(nodes.values).foreach { _ ! event}
-  }
-
-  private[crdt] def publishChange(json: JsValue): Unit = {
-    scala.collection.JavaConversions.collectionAsScalaIterable(nodes.values).foreach { _ ! stringify(json) }
-  }
+  def publish(crdt: IncrementingCounter): Unit             = publish(toJson(crdt))
+  def publish(crdt: IncrementingDecrementingCounter): Unit = publish(toJson(crdt))
+  def publish(crdt: AddSet): Unit                          = publish(toJson(crdt))
+  def publish(crdt: AddRemoveSet): Unit                    = publish(toJson(crdt))
+  def publish(json: JsValue): Unit                         = publisher ! stringify(json)
 }
 
-class ConvergentReplicatedDataTypeChangeListener extends Actor with ActorLogging {
+class Publisher extends Actor with ActorLogging {
+  val pubsub = DistributedPubSubExtension(context.system).mediator
 
   def receive = {
     case jsonString: String =>
@@ -135,22 +152,22 @@ class ConvergentReplicatedDataTypeChangeListener extends Actor with ActorLogging
         case "g-counter" =>
           val counter = json.as[IncrementingCounter]
           log.info("=================>>>> Received updated IncrementingCounter {}", counter)
+          pubsub ! Publish("g-counter", counter)
 
         case "pn-counter" =>
           val counter = json.as[IncrementingDecrementingCounter]
           log.info("=================>>>> Received updated IncrementingDecrementingCounter {}", counter)
+          pubsub ! Publish("pn-counter", counter)
 
         case "g-set" =>
-          // FIXME add type to JSON (string, json and binary/bytestring) then dispatch on it here
-          //log.info("=================>>>> Received updated AddSet {}", set)
-          // val set = (json \ "format").as[String] match {
-          //   case "string" => json.as[AddSet[String]]
-          //   case "json"   => json.as[AddSet[JsValue]]
-          //   case "binary" => json.as[AddSet[ByteString]]
+          val set = json.as[AddSet]
+          log.info("=================>>>> Received updated AddSet {}", set)
+          pubsub ! Publish("g-set", set)
+
         case "2p-set" =>
-          // FIXME add type to JSON (string, json and binary/bytestring) then dispatch on it here
           val set = json.as[AddRemoveSet]
           log.info("=================>>>> Received updated AddRemoveSet {}", set)
+          pubsub ! Publish("2p-set", set)
 
         case _ => error("Received JSON is not a CvRDT: " + jsonString)
       }
