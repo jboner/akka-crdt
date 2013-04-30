@@ -13,6 +13,8 @@ import akka.remote.testconductor.RoleName
 import akka.actor._
 import akka.cluster._
 
+import scala.util._
+
 import com.typesafe.config.ConfigFactory
 
 object BroadcastSpecConfig extends MultiNodeConfig {
@@ -40,15 +42,13 @@ class BroadcastSpec extends MultiNodeSpec(BroadcastSpecConfig) with ScalaTestMul
 
   implicit def roleNameToAddress(role: RoleName): Address = testConductor.getAddressFor(role).await
 
-  def initialParticipants = 3//roles.size
+  def initialParticipants = roles.size
 
   "A ConvergentReplicatedDataTypeStorage" must {
 
     "broadcast all CvRDT changes to all cluster nodes" in {
       val cluster = Cluster(system)
-      val crdt = ConvergentReplicatedDataTypeStorage(system)
-
-      println("-----------" + crdt.findById[GCounter]("hello"))
+      val storage = ConvergentReplicatedDataTypeStorage(system)
 
       runOn(node1) {
         cluster join node1
@@ -65,18 +65,47 @@ class BroadcastSpec extends MultiNodeSpec(BroadcastSpecConfig) with ScalaTestMul
       }
       enterBarrier("node3-started")
 
+      // FIXME can we get rid of this one? Would ideally like to use MultiNodeClusterSpec.awaitMembersUp
       Thread.sleep(5000)
 
+      // create directly and then store using 'update'
       runOn(node1) {
-        crdt.store(GCounter())
+        val gcounter = GCounter("jonas")
+        storage.update(gcounter)
       }
+      enterBarrier("stored g-counter on node1")
+
+      // find by id on the other nodes
+      runOn(node2, node3) {
+        awaitAssert(storage.findById[GCounter]("jonas").get)
+        storage.findById[GCounter]("jonas") match {
+          case Success(counter) =>
+            counter.id must be("jonas")
+            counter.`type` must be("g-counter")
+          case Failure(error) =>
+            fail(error)
+        }
+      }
+      enterBarrier("replicated g-counter from node1")
+
+      // create in the storage and have it updated automatically
       runOn(node2) {
-        crdt.store(GSet())
+        val gcounter = storage.create[GCounter]("viktor")
       }
+      enterBarrier("stored g-counter on node2")
 
-      Thread.sleep(5000)
-
-      enterBarrier("finished")
+      // find by id on the other nodes
+      runOn(node1, node3) {
+        awaitAssert(storage.findById[GCounter]("viktor").get)
+        storage.findById[GCounter]("viktor") match {
+          case Success(counter) =>
+            counter.id must be("viktor")
+            counter.`type` must be("g-counter")
+          case Failure(error) =>
+            fail(error)
+        }
+      }
+      enterBarrier("replicated g-counter from node2")
     }
   }
 }
