@@ -43,42 +43,42 @@ class ConvergentReplicatedDataTypeStorage(sys: ExtendedActorSystem) extends Exte
 
   private val settings = new ConvergentReplicatedDataTypeSettings(system.settings.config, system.name)
 
-  private val cvrdts = new ConcurrentHashMap[String, ConvergentReplicatedDataType]
+  private val storage = new ConcurrentHashMap[String, ConvergentReplicatedDataType]
 
   private val changeListeners = new ConcurrentHashMap[String, Set[ActorRef]]
 
   private val publisher = system.actorOf(Props[Publisher], name = "crdt:publisher")
+
   private val subscriber = system.actorOf(Props[Subscriber], name = "crdt:subscriber")
 
-  def shutdown(): Unit = {
-    log.info("Shutting down ConvergentReplicatedDataTypeStorage")
-    system.stop(subscriber)
-    system.stop(publisher)
+  def update(crdt: GCounter): GCounter = {
+    storeInLocalStorage(crdt)
+    publish(toJson(crdt))
+    crdt
   }
 
-  def store(crdt: GCounter): Unit = {
-    cvrdts.put(crdt.id, crdt)
-    store(toJson(crdt))
+  def update(crdt: PNCounter): PNCounter = {
+    storeInLocalStorage(crdt)
+    publish(toJson(crdt))
+    crdt
   }
 
-  def store(crdt: PNCounter): Unit = {
-    cvrdts.put(crdt.id, crdt)
-    store(toJson(crdt))
+  def update(crdt: GSet): GSet = {
+    storeInLocalStorage(crdt)
+    publish(toJson(crdt))
+    crdt
   }
 
-  def store(crdt: GSet): Unit = {
-    cvrdts.put(crdt.id, crdt)
-    store(toJson(crdt))
-  }
-
-  def store(crdt: TwoPhaseSet): Unit = {
-    cvrdts.put(crdt.id, crdt)
-    store(toJson(crdt))
+  def update(crdt: TwoPhaseSet): TwoPhaseSet = {
+    storeInLocalStorage(crdt)
+    publish(toJson(crdt))
+    crdt
   }
 
   def findById[T : ClassTag](crdtId: String): Try[T] = Try {
+    import scala.collection.JavaConversions._
     val crdt =
-      if (cvrdts.contains(crdtId)) cvrdts.get(crdtId)
+      if (storage.containsKey(crdtId)) storage.get(crdtId)
       else throw new NoSuchElementException("Could not find a CvRDT with id [" + crdtId + "]")
     val clazz = implicitly[ClassTag[T]].runtimeClass
     if (isCRDT(clazz)) crdt.asInstanceOf[T]
@@ -86,16 +86,29 @@ class ConvergentReplicatedDataTypeStorage(sys: ExtendedActorSystem) extends Exte
   }
 
   def create[T : ClassTag](crdtId: String): Try[T] = Try {
-    if (cvrdts.contains(crdtId)) throw new IllegalArgumentException("Can't create a new CvRDT with id [" + crdtId + "], since it already exists")
+    if (storage.containsKey(crdtId)) throw new IllegalArgumentException("Can't create a new CvRDT with id [" + crdtId + "], since it already exists")
     val clazz = implicitly[ClassTag[T]].runtimeClass
-    if (isCRDT(clazz)) Reflect.instantiate(clazz, crdtId).asInstanceOf[T]
+    if (classOf[GCounter].isAssignableFrom(clazz))         update(GCounter(crdtId)).asInstanceOf[T]
+    else if (classOf[PNCounter].isAssignableFrom(clazz))   update(PNCounter(crdtId)).asInstanceOf[T]
+    else if (classOf[GSet].isAssignableFrom(clazz))        update(GSet(crdtId)).asInstanceOf[T]
+    else if (classOf[TwoPhaseSet].isAssignableFrom(clazz)) update(TwoPhaseSet(crdtId)).asInstanceOf[T]
     else throw new ClassCastException("Could create new CvRDT with id [" + crdtId + "] and type [" + clazz + "]")
   }
 
   def subscribe(crdtId: String, listener: ActorRef): Unit = {
-    if (!changeListeners.contains(crdtId)) throw new IllegalArgumentException(s"CRDT with id $crdtId can not be found")
+    if (!changeListeners.containsKey(crdtId)) throw new IllegalArgumentException(s"CRDT with id $crdtId can not be found")
     changeListeners.put(crdtId, changeListeners.get(crdtId) + listener)
   }
+
+  def shutdown(): Unit = {
+    log.info("Shutting down ConvergentReplicatedDataTypeStorage")
+    system.stop(subscriber)
+    system.stop(publisher)
+  }
+
+  private[crdt] def storeInLocalStorage(crdt: ConvergentReplicatedDataType): Unit = storage.put(crdt.id, crdt)
+
+  private def publish(json: JsValue): Unit = publisher ! json
 
   private def isCRDT(clazz: Class[_]): Boolean = {
     classOf[GCounter].isAssignableFrom(clazz) ||
@@ -103,8 +116,6 @@ class ConvergentReplicatedDataTypeStorage(sys: ExtendedActorSystem) extends Exte
     classOf[GSet].isAssignableFrom(clazz) ||
     classOf[TwoPhaseSet].isAssignableFrom(clazz)
   }
-
-  private def store(json: JsValue): Unit = publisher ! json
 }
 
 /**
@@ -112,6 +123,7 @@ class ConvergentReplicatedDataTypeStorage(sys: ExtendedActorSystem) extends Exte
  */
 class Subscriber extends Actor with ActorLogging {
   val pubsub = DistributedPubSubExtension(context.system).mediator
+  val storage = ConvergentReplicatedDataTypeStorage(context.system)
 
   override def preStart(): Unit = {
     log.info("Starting CvRDT change subscriber")
@@ -126,19 +138,23 @@ class Subscriber extends Actor with ActorLogging {
       (json \ "type").as[String] match {
         case "g-counter" =>
           val counter = json.as[GCounter]
-          log.info("=================>>>> Received updated GCounter {}", counter)
+          log.info("Received updated GCounter {}", counter)
+          storage.storeInLocalStorage(counter)
 
         case "pn-counter" =>
           val counter = json.as[PNCounter]
-          log.info("=================>>>> Received updated PNCounter {}", counter)
+          log.info("Received updated PNCounter {}", counter)
+          storage.storeInLocalStorage(counter)
 
         case "g-set" =>
           val set = json.as[GSet]
-          log.info("=================>>>> Received updated GSet {}", set)
+          log.info("Received updated GSet {}", set)
+          storage.storeInLocalStorage(set)
 
         case "2p-set" =>
           val set = json.as[TwoPhaseSet]
-          log.info("=================>>>> Received updated TwoPhaseSet {}", set)
+          log.info("Received updated TwoPhaseSet {}", set)
+          storage.storeInLocalStorage(set)
 
         case _ => log.error("Received JSON is not a CvRDT: {}", jsonString)
       }
@@ -152,13 +168,14 @@ class Subscriber extends Actor with ActorLogging {
  */
 class Publisher extends Actor with ActorLogging {
   val pubsub = DistributedPubSubExtension(context.system).mediator
+  val subscriber = "/user/crdt:subscriber"
 
   log.info("Starting CvRDT change publisher")
 
   def receive = {
     case json: JsValue =>
-      log.info("=================>>>> Broadcasting changes {}", json)
-      pubsub ! SendToAll("/user/crdt:subscriber", stringify(json))
+      log.info("Broadcasting changes {}", json)
+      pubsub ! SendToAll(subscriber, stringify(json))
 
     case unknown => log.error("Received unknown message: {}", unknown)
   }
