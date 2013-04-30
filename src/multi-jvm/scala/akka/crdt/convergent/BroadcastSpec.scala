@@ -48,7 +48,7 @@ class BroadcastSpec extends MultiNodeSpec(BroadcastSpecConfig) with ScalaTestMul
       val cluster = Cluster(system)
       val crdt = ConvergentReplicatedDataTypeStorage(system)
 
-      println("-----------" + crdt.findById[IncrementingCounter]("hello"))
+      println("-----------" + crdt.findById[GCounter]("hello"))
 
       runOn(node1) {
         cluster join node1
@@ -68,10 +68,10 @@ class BroadcastSpec extends MultiNodeSpec(BroadcastSpecConfig) with ScalaTestMul
       Thread.sleep(5000)
 
       runOn(node1) {
-        crdt.store(IncrementingCounter())
+        crdt.store(GCounter())
       }
       runOn(node2) {
-        crdt.store(AddSet())
+        crdt.store(GSet())
       }
 
       Thread.sleep(5000)

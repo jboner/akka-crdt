@@ -13,30 +13,30 @@ import java.util.UUID
 /**
  * Implements a ConvergentReplicatedDataType 'Add Set' also called a 'G-Set'. You cannot remove an element of a G-Set.
  */
-case class AddSet(
+case class GSet(
   id: String = UUID.randomUUID.toString,
   private[crdt] val state: Set[JsValue] = Set.empty[JsValue]) extends ConvergentReplicatedDataTypeSet {
 
   val `type`: String = "g-set"
 
-  def +(element: JsValue): AddSet = AddSet(id, state + element)
+  def +(element: JsValue): GSet = GSet(id, state + element)
 
-  def merge(that: AddSet): AddSet = AddSet(id, that.state ++ this.state)
+  def merge(that: GSet): GSet = GSet(id, that.state ++ this.state)
 
   def toSet: immutable.Set[JsValue] = state
 
-  override def toString: String = Json.stringify(AddSet.format.writes(this))
+  override def toString: String = Json.stringify(GSet.format.writes(this))
 }
 
-object AddSet {
+object GSet {
 
-  implicit object format extends Format[AddSet] {
-    def reads(json: JsValue): JsResult[AddSet] = JsSuccess(AddSet(
+  implicit object format extends Format[GSet] {
+    def reads(json: JsValue): JsResult[GSet] = JsSuccess(GSet(
       (json \ "id").as[String],
       (json \ "state").as[Set[JsValue]]
     ))
 
-    def writes(set: AddSet): JsValue = JsObject(Seq(
+    def writes(set: GSet): JsValue = JsObject(Seq(
       "type"  -> JsString(set.`type`),
       "id"    -> JsString(set.id),
       "state" -> Json.toJson(set.state)

@@ -18,48 +18,48 @@ import java.util.UUID
  * only be removed if they are present in the set. Removes naturally take
  * precedence over adds.
  */
-case class AddRemoveSet(
+case class TwoPhaseSet(
   id: String,
-  private[crdt] val increments: AddSet,
-  private[crdt] val decrements: AddSet) extends ConvergentReplicatedDataTypeSet {
+  private[crdt] val increments: GSet,
+  private[crdt] val decrements: GSet) extends ConvergentReplicatedDataTypeSet {
 
   val `type`: String = "2p-set"
 
-  def +(element: JsValue): AddRemoveSet = {
+  def +(element: JsValue): TwoPhaseSet = {
     if ((increments contains element) && (decrements contains element)) throw new IllegalStateException(s"Can not add $element - already removed from set") // was previously removed
-    else AddRemoveSet(id, increments + element, decrements)
+    else TwoPhaseSet(id, increments + element, decrements)
   }
 
-  def -(element: JsValue): AddRemoveSet = {
-    if (increments contains element) AddRemoveSet(id, increments, decrements + element)
+  def -(element: JsValue): TwoPhaseSet = {
+    if (increments contains element) TwoPhaseSet(id, increments, decrements + element)
     else throw new IllegalStateException(s"Can not remove $element - not in set")
   }
 
-  def merge(that: AddRemoveSet): AddRemoveSet =
-    AddRemoveSet(id, that.increments.merge(this.increments), that.decrements.merge(this.decrements))
+  def merge(that: TwoPhaseSet): TwoPhaseSet =
+    TwoPhaseSet(id, that.increments.merge(this.increments), that.decrements.merge(this.decrements))
 
   def toSet: immutable.Set[JsValue] = increments.toSet -- decrements.toSet
 
-  override def toString: String = Json.stringify(AddRemoveSet.format.writes(this))
+  override def toString: String = Json.stringify(TwoPhaseSet.format.writes(this))
 }
 
-object AddRemoveSet {
-  def apply(): AddRemoveSet = {
+object TwoPhaseSet {
+  def apply(): TwoPhaseSet = {
     apply(UUID.randomUUID.toString)
   }
 
-  def apply[T](id: String): AddRemoveSet = {
-    new AddRemoveSet(id, AddSet(id = id + "/inc"), AddSet(id = id + "/dec"))
+  def apply[T](id: String): TwoPhaseSet = {
+    new TwoPhaseSet(id, GSet(id = id + "/inc"), GSet(id = id + "/dec"))
   }
 
-  implicit object format extends Format[AddRemoveSet] {
-    def reads(json: JsValue): JsResult[AddRemoveSet] = JsSuccess(AddRemoveSet(
+  implicit object format extends Format[TwoPhaseSet] {
+    def reads(json: JsValue): JsResult[TwoPhaseSet] = JsSuccess(TwoPhaseSet(
       (json \ "id").as[String],
-      (json \ "increments").as[AddSet],
-      (json \ "decrements").as[AddSet]
+      (json \ "increments").as[GSet],
+      (json \ "decrements").as[GSet]
     ))
 
-    def writes(set: AddRemoveSet): JsValue = JsObject(Seq(
+    def writes(set: TwoPhaseSet): JsValue = JsObject(Seq(
       "type"       -> JsString(set.`type`),
       "id"         -> JsString(set.id),
       "increments" -> Json.toJson(set.increments),

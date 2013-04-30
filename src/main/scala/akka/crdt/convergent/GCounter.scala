@@ -17,7 +17,7 @@ import java.util.UUID
  * resolved by taking the maximum count for each actor (like a vector
  * clock merge). The value of the counter is the sum of all actor counts.
  */
-case class IncrementingCounter(
+case class GCounter(
   id: String = UUID.randomUUID.toString,
   private[crdt] val state: Map[String, Int] = Map.empty[String, Int]) extends ConvergentReplicatedDataTypeCounter {
 
@@ -25,27 +25,27 @@ case class IncrementingCounter(
 
   def value: Int = state.values.sum
 
-  def +(node: String, delta: Int = 1): IncrementingCounter = {
-    if (delta < 0) throw new IllegalArgumentException("Can't decrement a IncrementingCounter")
+  def +(node: String, delta: Int = 1): GCounter = {
+    if (delta < 0) throw new IllegalArgumentException("Can't decrement a GCounter")
     if (state.contains(node)) copy(state = state + (node -> (state(node) + delta)))
     else copy(state = state + (node -> delta))
   }
 
-  def merge(that: IncrementingCounter): IncrementingCounter = {
+  def merge(that: GCounter): GCounter = {
     that.state.foldLeft(this) { (acc, record) => acc + (record._1, record._2) }
   }
 
-  override def toString: String = Json.stringify(IncrementingCounter.format.writes(this))
+  override def toString: String = Json.stringify(GCounter.format.writes(this))
 }
 
-object IncrementingCounter {
-  implicit object format extends Format[IncrementingCounter] {
-    def reads(json: JsValue): JsResult[IncrementingCounter] = JsSuccess(IncrementingCounter(
+object GCounter {
+  implicit object format extends Format[GCounter] {
+    def reads(json: JsValue): JsResult[GCounter] = JsSuccess(GCounter(
       (json \ "id").as[String],
       (json \ "state").as[Map[String, Int]]
     ))
 
-    def writes(counter: IncrementingCounter): JsValue = JsObject(Seq(
+    def writes(counter: GCounter): JsValue = JsObject(Seq(
       "type"  -> JsString(counter.`type`),
       "id"    -> JsString(counter.id),
       "state" -> Json.toJson(counter.state)

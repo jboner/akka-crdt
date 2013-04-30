@@ -8,16 +8,16 @@ import org.scalatest.WordSpec
 import org.scalatest.matchers.MustMatchers
 import play.api.libs.json.Json._
 
-class AddRemoveSetSpec extends WordSpec with MustMatchers {
+class TwoPhaseSetSpec extends WordSpec with MustMatchers {
   val user1 = parse("""{"username":"john","password":"coltrane"}""")
   val user2 = parse("""{"username":"sonny","password":"rollins"}""")
   val user3 = parse("""{"username":"charlie","password":"parker"}""")
   val user4 = parse("""{"username":"charles","password":"mingus"}""")
 
-  "An AddRemoveSet" must {
+  "An TwoPhaseSet" must {
 
     "be able to add user" in {
-      val c1 = AddRemoveSet(id = "users")
+      val c1 = TwoPhaseSet(id = "users")
 
       val c2 = c1 + user1
       val c3 = c2 + user2
@@ -32,7 +32,7 @@ class AddRemoveSetSpec extends WordSpec with MustMatchers {
     }
 
     "be able to remove added user" in {
-      val c1 = AddRemoveSet(id = "users")
+      val c1 = TwoPhaseSet(id = "users")
 
       val c2 = c1 + user1
       val c3 = c2 + user2
@@ -46,7 +46,7 @@ class AddRemoveSetSpec extends WordSpec with MustMatchers {
 
 
     "be throw exception if attempt to remove element that is not part of the set" in {
-      val c1 = AddRemoveSet(id = "users")
+      val c1 = TwoPhaseSet(id = "users")
 
       val c2 = c1 + user1
       val c3 = c2 + user2
@@ -55,7 +55,7 @@ class AddRemoveSetSpec extends WordSpec with MustMatchers {
     }
 
     "be throw exception if attempt to add an element previously removed from set" in {
-      val c1 = AddRemoveSet(id = "users")
+      val c1 = TwoPhaseSet(id = "users")
 
       val c2 = c1 + user1
       val c3 = c2 - user1
@@ -65,9 +65,9 @@ class AddRemoveSetSpec extends WordSpec with MustMatchers {
       intercept[IllegalStateException] { c3 + user1 }
     }
 
-    "be able to have its user set correctly merged with another AddRemoveSet with unique user sets" in {
+    "be able to have its user set correctly merged with another TwoPhaseSet with unique user sets" in {
       // set 1
-      val c11 = AddRemoveSet(id = "users")
+      val c11 = TwoPhaseSet(id = "users")
 
       val c12 = c11 + user1
       val c13 = c12 + user2
@@ -76,7 +76,7 @@ class AddRemoveSetSpec extends WordSpec with MustMatchers {
       c13.toSet must contain (user2)
 
       // set 2
-      val c21 = AddRemoveSet(id = "users")
+      val c21 = TwoPhaseSet(id = "users")
 
       val c22 = c21 + user3
       val c23 = c22 + user4
@@ -99,9 +99,9 @@ class AddRemoveSetSpec extends WordSpec with MustMatchers {
       merged2.toSet must contain (user4)
     }
 
-    "be able to have its user set correctly merged with another AddRemoveSet with overlapping user sets" in {
+    "be able to have its user set correctly merged with another TwoPhaseSet with overlapping user sets" in {
       // set 1
-      val c10 = AddRemoveSet(id = "users")
+      val c10 = TwoPhaseSet(id = "users")
 
       val c11 = c10 + user1
       val c12 = c11 + user2
@@ -111,7 +111,7 @@ class AddRemoveSetSpec extends WordSpec with MustMatchers {
       c13.toSet must contain (user2)
 
       // set 2
-      val c20 = AddRemoveSet(id = "users")
+      val c20 = TwoPhaseSet(id = "users")
 
       val c21 = c20 + user1
       val c22 = c21 + user3
@@ -136,7 +136,7 @@ class AddRemoveSetSpec extends WordSpec with MustMatchers {
     }
 
     "be able to serialize itself to JSON" in {
-      val c1 = AddRemoveSet(id = "users")
+      val c1 = TwoPhaseSet(id = "users")
 
       stringify(toJson(c1)) must be("""{"type":"2p-set","id":"users","increments":{"type":"g-set","id":"users/inc","state":[]},"decrements":{"type":"g-set","id":"users/dec","state":[]}}""")
 
@@ -151,7 +151,7 @@ class AddRemoveSetSpec extends WordSpec with MustMatchers {
 
     "be able to serialize itself from JSON" in {
       val json = parse("""{"type":"2p-set","id":"users","increments":{"type":"g-set","id":"users/inc","state":[{"username":"john","password":"coltrane"},{"username":"sonny","password":"rollins"},{"username":"charlie","password":"parker"}]},"decrements":{"type":"g-set","id":"users/dec","state":[{"username":"sonny","password":"rollins"}]}}""")
-      val c1 = json.as[AddRemoveSet]
+      val c1 = json.as[TwoPhaseSet]
 
       c1.toSet must contain (user1)
       c1.toSet must not contain (user2)

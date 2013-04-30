@@ -56,22 +56,22 @@ class ConvergentReplicatedDataTypeStorage(sys: ExtendedActorSystem) extends Exte
     system.stop(publisher)
   }
 
-  def store(crdt: IncrementingCounter): Unit = {
+  def store(crdt: GCounter): Unit = {
     cvrdts.put(crdt.id, crdt)
     store(toJson(crdt))
   }
 
-  def store(crdt: IncrementingDecrementingCounter): Unit = {
+  def store(crdt: PNCounter): Unit = {
     cvrdts.put(crdt.id, crdt)
     store(toJson(crdt))
   }
 
-  def store(crdt: AddSet): Unit = {
+  def store(crdt: GSet): Unit = {
     cvrdts.put(crdt.id, crdt)
     store(toJson(crdt))
   }
 
-  def store(crdt: AddRemoveSet): Unit = {
+  def store(crdt: TwoPhaseSet): Unit = {
     cvrdts.put(crdt.id, crdt)
     store(toJson(crdt))
   }
@@ -98,10 +98,10 @@ class ConvergentReplicatedDataTypeStorage(sys: ExtendedActorSystem) extends Exte
   }
 
   private def isCRDT(clazz: Class[_]): Boolean = {
-    classOf[IncrementingCounter].isAssignableFrom(clazz) ||
-    classOf[IncrementingDecrementingCounter].isAssignableFrom(clazz) ||
-    classOf[AddSet].isAssignableFrom(clazz) ||
-    classOf[AddRemoveSet].isAssignableFrom(clazz)
+    classOf[GCounter].isAssignableFrom(clazz) ||
+    classOf[PNCounter].isAssignableFrom(clazz) ||
+    classOf[GSet].isAssignableFrom(clazz) ||
+    classOf[TwoPhaseSet].isAssignableFrom(clazz)
   }
 
   private def store(json: JsValue): Unit = publisher ! json
@@ -125,20 +125,20 @@ class Subscriber extends Actor with ActorLogging {
 
       (json \ "type").as[String] match {
         case "g-counter" =>
-          val counter = json.as[IncrementingCounter]
-          log.info("=================>>>> Received updated IncrementingCounter {}", counter)
+          val counter = json.as[GCounter]
+          log.info("=================>>>> Received updated GCounter {}", counter)
 
         case "pn-counter" =>
-          val counter = json.as[IncrementingDecrementingCounter]
-          log.info("=================>>>> Received updated IncrementingDecrementingCounter {}", counter)
+          val counter = json.as[PNCounter]
+          log.info("=================>>>> Received updated PNCounter {}", counter)
 
         case "g-set" =>
-          val set = json.as[AddSet]
-          log.info("=================>>>> Received updated AddSet {}", set)
+          val set = json.as[GSet]
+          log.info("=================>>>> Received updated GSet {}", set)
 
         case "2p-set" =>
-          val set = json.as[AddRemoveSet]
-          log.info("=================>>>> Received updated AddRemoveSet {}", set)
+          val set = json.as[TwoPhaseSet]
+          log.info("=================>>>> Received updated TwoPhaseSet {}", set)
 
         case _ => log.error("Received JSON is not a CvRDT: {}", jsonString)
       }
