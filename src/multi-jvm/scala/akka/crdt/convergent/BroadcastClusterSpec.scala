@@ -8,7 +8,6 @@ import akka.remote.testkit.MultiNodeConfig
 import akka.crdt._
 
 import akka.remote.testkit.MultiNodeSpec
-import akka.testkit.ImplicitSender
 import akka.remote.testconductor.RoleName
 import akka.actor._
 import akka.cluster._
@@ -28,15 +27,14 @@ object BroadcastClusterSpecConfig extends MultiNodeConfig {
     akka.cluster.auto-down = on
     akka.loggers = ["akka.testkit.TestEventListener"]
     akka.loglevel = INFO
-    akka.remote.log-remote-lifecycle-events = off
-                                         """))
+    akka.remote.log-remote-lifecycle-events = off"""))
 }
 
 class BroadcastClusterSpecMultiJvmNode1 extends BroadcastClusterSpec
 class BroadcastClusterSpecMultiJvmNode2 extends BroadcastClusterSpec
 class BroadcastClusterSpecMultiJvmNode3 extends BroadcastClusterSpec
 
-class BroadcastClusterSpec extends MultiNodeSpec(BroadcastClusterSpecConfig) with ScalaTestMultiNodeSpec with ImplicitSender {
+class BroadcastClusterSpec extends MultiNodeSpec(BroadcastClusterSpecConfig) with STMultiNodeSpec {
 
   import BroadcastClusterSpecConfig._
 
@@ -50,23 +48,12 @@ class BroadcastClusterSpec extends MultiNodeSpec(BroadcastClusterSpecConfig) wit
       val cluster = Cluster(system)
       val storage = ConvergentReplicatedDataTypeStorage(system)
 
-      runOn(node1) {
-        cluster join node1
-      }
-      enterBarrier("node1-started")
+      runOn(node1) { cluster join node1 }
+      runOn(node2) { cluster join node1 }
+      runOn(node3) { cluster join node1 }
 
-      runOn(node2) {
-        cluster join node1
-      }
-      enterBarrier("node2-started")
-
-      runOn(node3) {
-        cluster join node1
-      }
-      enterBarrier("node3-started")
-
-      // FIXME can we get rid of this one? Would ideally like to use MultiNodeClusterSpec.awaitMembersUp
-      Thread.sleep(5000)
+      awaitConnectedSubscribers(initialParticipants)
+      enterBarrier("pubsub-fully-connected")
 
       // create directly and then store using 'update'
       runOn(node1) {

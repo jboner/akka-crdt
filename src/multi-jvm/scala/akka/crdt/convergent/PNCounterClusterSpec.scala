@@ -8,7 +8,6 @@ import akka.remote.testkit.MultiNodeConfig
 import akka.crdt._
 
 import akka.remote.testkit.MultiNodeSpec
-import akka.testkit.ImplicitSender
 import akka.remote.testconductor.RoleName
 import akka.actor._
 import akka.cluster._
@@ -37,7 +36,7 @@ class PNCounterClusterSpecMultiJvmNode1 extends PNCounterClusterSpec
 class PNCounterClusterSpecMultiJvmNode2 extends PNCounterClusterSpec
 class PNCounterClusterSpecMultiJvmNode3 extends PNCounterClusterSpec
 
-class PNCounterClusterSpec extends MultiNodeSpec(PNCounterClusterSpecConfig) with ScalaTestMultiNodeSpec with ImplicitSender {
+class PNCounterClusterSpec extends MultiNodeSpec(PNCounterClusterSpecConfig) with STMultiNodeSpec {
 
   import PNCounterClusterSpecConfig._
 
@@ -52,14 +51,11 @@ class PNCounterClusterSpec extends MultiNodeSpec(PNCounterClusterSpecConfig) wit
       val storage = ConvergentReplicatedDataTypeStorage(system)
 
       runOn(node1) { cluster join node1 }
-      enterBarrier("node1-started")
       runOn(node2) { cluster join node1 }
-      enterBarrier("node2-started")
       runOn(node3) { cluster join node1 }
-      enterBarrier("node3-started")
 
-      // FIXME can we get rid of this one? Would ideally like to use MultiNodeClusterSpec.awaitMembersUp
-      Thread.sleep(5000)
+      awaitConnectedSubscribers(initialParticipants)
+      enterBarrier("pubsub-fully-connected")
 
       // create CRDT on node1
       runOn(node1) {
