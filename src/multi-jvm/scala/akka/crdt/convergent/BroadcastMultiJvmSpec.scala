@@ -36,7 +36,7 @@ class BroadcastSpecSpecMultiJvmNode1 extends BroadcastSpec
 class BroadcastSpecSpecMultiJvmNode2 extends BroadcastSpec
 class BroadcastSpecSpecMultiJvmNode3 extends BroadcastSpec
 
-class BroadcastSpec extends MultiNodeSpec(BroadcastSpecConfig) with ScalaTestMultiNodeSpec with ImplicitSender {
+class BroadcastMultiJvmSpec extends MultiNodeSpec(BroadcastSpecConfig) with ScalaTestMultiNodeSpec with ImplicitSender {
 
   import BroadcastSpecConfig._
 

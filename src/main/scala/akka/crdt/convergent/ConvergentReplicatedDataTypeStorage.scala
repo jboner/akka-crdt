@@ -14,7 +14,7 @@ import akka.contrib.pattern.DistributedPubSubMediator._
 import play.api.libs.json.Json._
 import play.api.libs.json._
 
-import scala.util.Try
+import scala.util.{Try, Success, Failure}
 import scala.reflect.ClassTag
 
 import java.util.concurrent.ConcurrentHashMap
@@ -52,31 +52,26 @@ class ConvergentReplicatedDataTypeStorage(sys: ExtendedActorSystem) extends Exte
   private val subscriber = system.actorOf(Props[Subscriber], name = "crdt:subscriber")
 
   def update(crdt: GCounter): GCounter = {
-    storeInLocalStorage(crdt)
     publish(toJson(crdt))
     crdt
   }
 
   def update(crdt: PNCounter): PNCounter = {
-    storeInLocalStorage(crdt)
     publish(toJson(crdt))
     crdt
   }
 
   def update(crdt: GSet): GSet = {
-    storeInLocalStorage(crdt)
     publish(toJson(crdt))
     crdt
   }
 
   def update(crdt: TwoPhaseSet): TwoPhaseSet = {
-    storeInLocalStorage(crdt)
     publish(toJson(crdt))
     crdt
   }
 
   def findById[T : ClassTag](crdtId: String): Try[T] = Try {
-    import scala.collection.JavaConversions._
     val crdt =
       if (storage.containsKey(crdtId)) storage.get(crdtId)
       else throw new NoSuchElementException("Could not find a CvRDT with id [" + crdtId + "]")
@@ -132,29 +127,25 @@ class Subscriber extends Actor with ActorLogging {
 
   def receive: Receive = {
     case jsonString: String =>
-      log.debug("Received JSON {}", jsonString)
+      log.info("Received updated CvRDT {}", jsonString)
       val json = parse(jsonString)
 
       (json \ "type").as[String] match {
         case "g-counter" =>
           val counter = json.as[GCounter]
-          log.info("Received updated GCounter {}", counter)
-          storage.storeInLocalStorage(counter)
+          storage.findById[GCounter](counter.id) map { _ merge counter } recover { case _ => counter } foreach { storage.storeInLocalStorage(_) }
 
         case "pn-counter" =>
           val counter = json.as[PNCounter]
-          log.info("Received updated PNCounter {}", counter)
-          storage.storeInLocalStorage(counter)
+          storage.findById[PNCounter](counter.id) map { _ merge counter } recover { case _ => counter } foreach { storage.storeInLocalStorage(_) }
 
         case "g-set" =>
           val set = json.as[GSet]
-          log.info("Received updated GSet {}", set)
-          storage.storeInLocalStorage(set)
+          storage.findById[GSet](set.id) map { _ merge set } recover { case _ => set } foreach { storage.storeInLocalStorage(_) }
 
         case "2p-set" =>
           val set = json.as[TwoPhaseSet]
-          log.info("Received updated TwoPhaseSet {}", set)
-          storage.storeInLocalStorage(set)
+          storage.findById[TwoPhaseSet](set.id) map { _ merge set } recover { case _ => set } foreach { storage.storeInLocalStorage(_) }
 
         case _ => log.error("Received JSON is not a CvRDT: {}", jsonString)
       }
