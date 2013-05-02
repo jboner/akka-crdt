@@ -17,7 +17,7 @@ import scala.util._
 
 import com.typesafe.config.ConfigFactory
 
-object BroadcastSpecConfig extends MultiNodeConfig {
+object BroadcastClusterSpecConfig extends MultiNodeConfig {
   val node1 = role("node1")
   val node2 = role("node2")
   val node3 = role("node3")
@@ -29,16 +29,16 @@ object BroadcastSpecConfig extends MultiNodeConfig {
     akka.loggers = ["akka.testkit.TestEventListener"]
     akka.loglevel = INFO
     akka.remote.log-remote-lifecycle-events = off
-  """))
+                                         """))
 }
 
-class BroadcastSpecSpecMultiJvmNode1 extends BroadcastSpec
-class BroadcastSpecSpecMultiJvmNode2 extends BroadcastSpec
-class BroadcastSpecSpecMultiJvmNode3 extends BroadcastSpec
+class BroadcastClusterSpecMultiJvmNode1 extends BroadcastClusterSpec
+class BroadcastClusterSpecMultiJvmNode2 extends BroadcastClusterSpec
+class BroadcastClusterSpecMultiJvmNode3 extends BroadcastClusterSpec
 
-class BroadcastMultiJvmSpec extends MultiNodeSpec(BroadcastSpecConfig) with ScalaTestMultiNodeSpec with ImplicitSender {
+class BroadcastClusterSpec extends MultiNodeSpec(BroadcastClusterSpecConfig) with ScalaTestMultiNodeSpec with ImplicitSender {
 
-  import BroadcastSpecConfig._
+  import BroadcastClusterSpecConfig._
 
   implicit def roleNameToAddress(role: RoleName): Address = testConductor.getAddressFor(role).await
 
