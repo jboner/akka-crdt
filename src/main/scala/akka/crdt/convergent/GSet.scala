@@ -23,7 +23,7 @@ case class GSet(
 
   def merge(that: GSet): GSet = GSet(id, that.state ++ this.state)
 
-  def toSet: immutable.Set[JsValue] = state
+  def value: immutable.Set[JsValue] = state
 
   override def toString: String = Json.stringify(GSet.format.writes(this))
 }

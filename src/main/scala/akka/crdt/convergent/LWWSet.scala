@@ -78,7 +78,7 @@ case class LWWSet private (
   def merge(that: LWWSet): LWWSet =
     new LWWSet(id, that.increments.merge(this.increments), that.decrements.merge(this.decrements))
 
-  def toSet: immutable.Set[JsValue] = increments.toSet -- decrements.toSet
+  def value: immutable.Set[JsValue] = increments.value -- decrements.value
 }
 
 object LWWSet {
@@ -90,7 +90,7 @@ object LWWSet {
     new LWWSet(id, GSet(id = id + "/inc"), GSet(id = id + "/dec"))
   }
 
-  implicit object jsValueFormat extends Format[LWWSet] {
+  implicit object format extends Format[LWWSet] {
     def reads(json: JsValue): JsResult[LWWSet] = JsSuccess(new LWWSet(
       (json \ "id").as[String],
       (json \ "increments").as[GSet],
@@ -98,8 +98,8 @@ object LWWSet {
     ))
 
     def writes(set: LWWSet): JsValue = JsObject(Seq(
-      "type" -> JsString(set.`type`),
-      "id" -> JsString(set.id),
+      "type"       -> JsString(set.`type`),
+      "id"         -> JsString(set.id),
       "increments" -> Json.toJson(set.increments),
       "decrements" -> Json.toJson(set.decrements)
     ))

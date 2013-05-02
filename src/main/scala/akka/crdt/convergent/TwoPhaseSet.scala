@@ -38,7 +38,7 @@ case class TwoPhaseSet(
   def merge(that: TwoPhaseSet): TwoPhaseSet =
     TwoPhaseSet(id, that.increments.merge(this.increments), that.decrements.merge(this.decrements))
 
-  def toSet: immutable.Set[JsValue] = increments.toSet -- decrements.toSet
+  def value: immutable.Set[JsValue] = increments.value -- decrements.value
 
   override def toString: String = Json.stringify(TwoPhaseSet.format.writes(this))
 }

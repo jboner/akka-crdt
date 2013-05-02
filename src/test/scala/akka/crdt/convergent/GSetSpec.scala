@@ -26,10 +26,10 @@ class GSetSpec extends WordSpec with MustMatchers {
       val c4 = c3 + user4
       val c5 = c4 + user3
 
-      c5.toSet must contain (user1)
-      c5.toSet must contain (user2)
-      c5.toSet must contain (user3)
-      c5.toSet must contain (user4)
+      c5.value must contain (user1)
+      c5.value must contain (user2)
+      c5.value must contain (user3)
+      c5.value must contain (user4)
     }
 
     "be able to have its user set correctly merged with another GSet with unique user sets" in {
@@ -39,8 +39,8 @@ class GSetSpec extends WordSpec with MustMatchers {
       val c12 = c11 + user1
       val c13 = c12 + user2
 
-      c13.toSet must contain (user1)
-      c13.toSet must contain (user2)
+      c13.value must contain (user1)
+      c13.value must contain (user2)
 
       // set 2
       val c21 = GSet(id = "users")
@@ -48,21 +48,21 @@ class GSetSpec extends WordSpec with MustMatchers {
       val c22 = c21 + user3
       val c23 = c22 + user4
 
-      c23.toSet must contain (user3)
-      c23.toSet must contain (user4)
+      c23.value must contain (user3)
+      c23.value must contain (user4)
 
       // merge both ways
       val merged1 = c13 merge c23
-      merged1.toSet must contain (user1)
-      merged1.toSet must contain (user2)
-      merged1.toSet must contain (user3)
-      merged1.toSet must contain (user4)
+      merged1.value must contain (user1)
+      merged1.value must contain (user2)
+      merged1.value must contain (user3)
+      merged1.value must contain (user4)
 
       val merged2 = c23 merge c13
-      merged2.toSet must contain (user1)
-      merged2.toSet must contain (user2)
-      merged2.toSet must contain (user3)
-      merged2.toSet must contain (user4)
+      merged2.value must contain (user1)
+      merged2.value must contain (user2)
+      merged2.value must contain (user3)
+      merged2.value must contain (user4)
     }
 
     "be able to have its user set correctly merged with another GSet with overlapping user sets" in {
@@ -73,9 +73,9 @@ class GSetSpec extends WordSpec with MustMatchers {
       val c12 = c11 + user2
       val c13 = c12 + user3
 
-      c13.toSet must contain (user1)
-      c13.toSet must contain (user2)
-      c13.toSet must contain (user3)
+      c13.value must contain (user1)
+      c13.value must contain (user2)
+      c13.value must contain (user3)
 
       // set 2
       val c20 = GSet(id = "users")
@@ -84,22 +84,22 @@ class GSetSpec extends WordSpec with MustMatchers {
       val c22 = c21 + user3
       val c23 = c22 + user4
 
-      c23.toSet must contain (user2)
-      c23.toSet must contain (user3)
-      c23.toSet must contain (user4)
+      c23.value must contain (user2)
+      c23.value must contain (user3)
+      c23.value must contain (user4)
 
       // merge both ways
       val merged1 = c13 merge c23
-      merged1.toSet must contain (user1)
-      merged1.toSet must contain (user2)
-      merged1.toSet must contain (user3)
-      merged1.toSet must contain (user4)
+      merged1.value must contain (user1)
+      merged1.value must contain (user2)
+      merged1.value must contain (user3)
+      merged1.value must contain (user4)
 
       val merged2 = c23 merge c13
-      merged2.toSet must contain (user1)
-      merged2.toSet must contain (user2)
-      merged2.toSet must contain (user3)
-      merged2.toSet must contain (user4)
+      merged2.value must contain (user1)
+      merged2.value must contain (user2)
+      merged2.value must contain (user3)
+      merged2.value must contain (user4)
     }
 
     "be able to serialize itself to JSON" in {
@@ -120,10 +120,10 @@ class GSetSpec extends WordSpec with MustMatchers {
       val json = parse("""{"type":"g-set","id":"users","state":[{"username":"john","password":"coltrane"},{"username":"sonny","password":"rollins"},{"username":"charles","password":"mingus"},{"username":"charlie","password":"parker"}]}""")
       val c1 = json.as[GSet]
 
-      c1.toSet must contain (user1)
-      c1.toSet must contain (user2)
-      c1.toSet must contain (user3)
-      c1.toSet must contain (user4)
+      c1.value must contain (user1)
+      c1.value must contain (user2)
+      c1.value must contain (user3)
+      c1.value must contain (user4)
     }
   }
 }
