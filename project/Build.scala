@@ -41,8 +41,8 @@ object Dependencies {
   // lazy val eventSourced      = "org.eligosource"   %% "eventsourced-core"          % EventSourcedVersion % "compile"
   // lazy val eventSourcedInMem = "org.eligosource"   %% "eventsourced-journal-inmem" % EventSourcedVersion % "compile"
 
-  lazy val scalaTest         = "org.scalatest"     %% "scalatest"         % "1.9"               % "test"
-  lazy val akkaMultiNodeTest = "com.typesafe.akka" %% "akka-remote-tests" % AkkaVersion         % "test"
+  lazy val scalaTest         = "org.scalatest"     %% "scalatest"         % "1.9.1"     % "test"
+  lazy val akkaMultiNodeTest = "com.typesafe.akka" %% "akka-remote-tests" % AkkaVersion % "test"
 }
 
 object ExampleBuild extends Build {
