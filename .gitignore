@@ -8,3 +8,6 @@
 target
 akka-crdt.sublime-project
 akka-crdt.sublime-workspace
+
+/.worksheet/
+/bin/
