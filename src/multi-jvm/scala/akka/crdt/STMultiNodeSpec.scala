@@ -23,7 +23,7 @@ trait STMultiNodeSpec
   with ImplicitSender { this: MultiNodeSpec ⇒
 
   def awaitConnectedSubscribers(expected: Int): Unit = {
-    val timeout: FiniteDuration = 10.seconds
+    val timeout: FiniteDuration = 30.seconds
     awaitAssert(
       {
         DistributedPubSubExtension(system).mediator ! DistributedPubSubMediator.Count
