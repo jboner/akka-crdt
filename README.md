@@ -2,32 +2,60 @@
 
 Server-managed CRDT implementation for Akka
 
-## TODO
+# TODO
 
 The "Specification" below refers to the paper [A comprehensive study of Convergent and Commutative Replicated Data Types](http://hal.upmc.fr/docs/00/55/55/88/PDF/techreport.pdf) by Mark Shapiro et. al.
 
-### Convergent (state-based)
+## Convergent (state-based)
+
+### Counters
 
 * DONE Specification 6  State-based increment-only counter
 * DONE Specification 7  State-based PN-Counter
+
+### Registers
+
 * Specification 8       State-based Last-Writer-Wins Register (LWW Register)
 * Specification 10      State-based Multi-Value Register (MV-Register)
+
+### Sets
+
 * DONE Specification 11 State-based grow-only Set (G-Set)
 * DONE Specification 12 State-based 2P-Set
+* Specification 3.3.3   LWW-element Set
+
+### Implementation details
+
 * DONE Use DistributedPubSub for broadcast of changes
 
-### Commutative (ops-based)
+## Commutative (ops-based)
+
+### Counters
 
 * Specification 5 op-based Counter
+
+### Sets
+
 * Specification 9 Op-based LWW-Register
 * Specification 13 U-Set: Op-based 2P-Set with unique elements
 * Specification 14 Molli, Weiss, Skaf Set
 * Specification 15 Op-based Observed-Remove Set (OR-Set)
+
+### Graphs
+
 * Specification 16 2P2P-Graph (op-based)
 * Specification 17 Add-only Monotonic DAG (op-based)
 * Specification 18 Add-Remove Partial Order
+
+### Array
+
 * Specification 19 Replicated Growable Array (RGA)
+
+### Shopping Cart
+
 * Specification 21 Op-based Observed-Remove Shopping Cart (OR-Cart)
+
+## Misc Implementation Details
 
 ### Garbage Collection
 
