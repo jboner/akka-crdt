@@ -138,7 +138,7 @@ class TwoPhaseSetSpec extends WordSpec with MustMatchers {
     "be able to serialize itself to JSON" in {
       val c1 = TwoPhaseSet(id = "users")
 
-      stringify(toJson(c1)) must be("""{"type":"2p-set","id":"users","increments":{"type":"g-set","id":"users/inc","state":[]},"decrements":{"type":"g-set","id":"users/dec","state":[]}}""")
+      stringify(toJson(c1)) must be("""{"type":"2p-set","id":"users","adds":{"type":"g-set","id":"users/adds","state":[]},"removes":{"type":"g-set","id":"users/removes","state":[]}}""")
 
       val c2 = c1 + user1
       val c3 = c2 + user2
@@ -146,11 +146,11 @@ class TwoPhaseSetSpec extends WordSpec with MustMatchers {
       val c4 = c3 - user2
       val c5 = c4 + user3
 
-      stringify(toJson(c5)) must be("""{"type":"2p-set","id":"users","increments":{"type":"g-set","id":"users/inc","state":[{"username":"john","password":"coltrane"},{"username":"sonny","password":"rollins"},{"username":"charlie","password":"parker"}]},"decrements":{"type":"g-set","id":"users/dec","state":[{"username":"sonny","password":"rollins"}]}}""")
+      stringify(toJson(c5)) must be("""{"type":"2p-set","id":"users","adds":{"type":"g-set","id":"users/adds","state":[{"username":"john","password":"coltrane"},{"username":"sonny","password":"rollins"},{"username":"charlie","password":"parker"}]},"removes":{"type":"g-set","id":"users/removes","state":[{"username":"sonny","password":"rollins"}]}}""")
     }
 
     "be able to serialize itself from JSON" in {
-      val json = parse("""{"type":"2p-set","id":"users","increments":{"type":"g-set","id":"users/inc","state":[{"username":"john","password":"coltrane"},{"username":"sonny","password":"rollins"},{"username":"charlie","password":"parker"}]},"decrements":{"type":"g-set","id":"users/dec","state":[{"username":"sonny","password":"rollins"}]}}""")
+      val json = parse("""{"type":"2p-set","id":"users","adds":{"type":"g-set","id":"users/adds","state":[{"username":"john","password":"coltrane"},{"username":"sonny","password":"rollins"},{"username":"charlie","password":"parker"}]},"removes":{"type":"g-set","id":"users/removes","state":[{"username":"sonny","password":"rollins"}]}}""")
       val c1 = json.as[TwoPhaseSet]
 
       c1.value must contain (user1)
