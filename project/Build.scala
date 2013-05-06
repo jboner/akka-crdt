@@ -34,10 +34,13 @@ object Versions {
 
 object Dependencies {
   import Versions._
-  lazy val akkaActor         = "com.typesafe.akka" %% "akka-actor"                 % AkkaVersion         % "compile"
-  lazy val akkaCluster       = "com.typesafe.akka" %% "akka-cluster-experimental"  % AkkaVersion         % "compile"
-  lazy val akkaContrib       = "com.typesafe.akka" %% "akka-contrib"               % AkkaVersion         % "compile"
-  lazy val playJson          = "play"              %% "play-json"                  % "2.2-SNAPSHOT"      % "compile"
+  lazy val akkaActor   = "com.typesafe.akka" 			 %% "akka-actor"                % AkkaVersion    % "compile"
+  lazy val akkaCluster = "com.typesafe.akka"       %% "akka-cluster-experimental" % AkkaVersion    % "compile"
+  lazy val akkaContrib = "com.typesafe.akka" 			 %% "akka-contrib"              % AkkaVersion    % "compile"
+  lazy val playJson    = "play"              			 %% "play-json"                 % "2.2-SNAPSHOT" % "compile"
+  lazy val unfiltered  = "net.databinder"          %% "unfiltered-netty-server"   % "0.6.8"        % "compile"
+  lazy val dispatch    = "net.databinder.dispatch" %% "dispatch-core"             % "0.10.0"       % "compile"
+
   // lazy val eventSourced      = "org.eligosource"   %% "eventsourced-core"          % EventSourcedVersion % "compile"
   // lazy val eventSourcedInMem = "org.eligosource"   %% "eventsourced-journal-inmem" % EventSourcedVersion % "compile"
 
@@ -54,9 +57,8 @@ object ExampleBuild extends Build {
     "akka-crdt",
     file("."),
     settings = buildSettings ++ multiJvmSettings ++ Seq (
-      resolvers            := Seq (eligosourceReleasesRepo, eligosourceSnapshotsRepo, temporary),
-      libraryDependencies ++= Seq (akkaActor, akkaCluster, akkaContrib, playJson),
-      // libraryDependencies ++= Seq (akkaActor, akkaCluster, akkaContrib, playJson, eventSourced, eventSourcedInMem),
+      resolvers            := Seq (temporary),
+      libraryDependencies ++= Seq (akkaActor, akkaCluster, akkaContrib, playJson, unfiltered, dispatch),
       libraryDependencies ++= Seq (scalaTest, akkaMultiNodeTest)
     )
   ) configs(MultiJvm)
