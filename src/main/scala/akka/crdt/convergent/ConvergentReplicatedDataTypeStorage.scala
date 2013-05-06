@@ -20,8 +20,6 @@ import scala.reflect.ClassTag
 object ConvergentReplicatedDataTypeStorage
   extends ExtensionId[ConvergentReplicatedDataTypeStorage]
   with ExtensionIdProvider {
-	
-	
 
   override def get(system: ActorSystem): ConvergentReplicatedDataTypeStorage = super.get(system)
 
@@ -45,7 +43,7 @@ class ConvergentReplicatedDataTypeStorage(sys: ExtendedActorSystem) extends Exte
 
   private val publisher = system.actorOf(Props[Publisher], name = "crdt:publisher")
 
-  private val subscriber = system.actorOf(Props[Subscriber], name = "crdt:subscriber")
+  private val subscriber = system.actorOf(Props(new Subscriber with InMemoryStorage), name = "crdt:subscriber")
 
   @volatile private[crdt] var gCountersView 	= Map.empty[String, GCounter]
   @volatile private[crdt] var pnCountersView 	= Map.empty[String, PNCounter]
@@ -77,18 +75,12 @@ class ConvergentReplicatedDataTypeStorage(sys: ExtendedActorSystem) extends Exte
     if (classOf[GCounter].isAssignableFrom(clazz)) {
     	(gCountersView.get(id) getOrElse update(GCounter(id))).asInstanceOf[T]
     } else if (classOf[PNCounter].isAssignableFrom(clazz))
-    	(pnCountersView.get(id) getOrElse update(PNCounter(id))).asInstanceOf[T]    	
+    	(pnCountersView.get(id) getOrElse update(PNCounter(id))).asInstanceOf[T]
     else if (classOf[GSet].isAssignableFrom(clazz))
     	(gSetView.get(id) getOrElse update(GSet(id))).asInstanceOf[T]
     else if (classOf[TwoPhaseSet].isAssignableFrom(clazz))
     	(twoPhaseSetView.get(id) getOrElse update(TwoPhaseSet(id))).asInstanceOf[T]
     else throw new ClassCastException("Could create new CvRDT with id [" + id + "] and type [" + clazz + "]")
-  }
-
-  def subscribe(crdtId: String, listener: ActorRef): Unit = {
-  	// FIXME subscribe to event bus instead
-  	//    if (!changeListeners.containsKey(crdtId)) throw new IllegalArgumentException(s"CRDT with id $crdtId can not be found")
-  	//    changeListeners.put(crdtId, changeListeners.get(crdtId) + listener)
   }
 
   def shutdown(): Unit = {
@@ -101,16 +93,31 @@ class ConvergentReplicatedDataTypeStorage(sys: ExtendedActorSystem) extends Exte
 }
 
 /**
+ * Publishing (broadcasting) CRDT changes to all nodes with a Subscriber.
+ */
+class Publisher extends Actor with ActorLogging {
+  val pubsub = DistributedPubSubExtension(context.system).mediator
+  val subscriber = "/user/crdt:subscriber"
+
+  override def preStart(): Unit = {
+    log.info("Starting CvRDT change publisher")
+  }
+
+  def receive = {
+    case json: JsValue =>
+      log.debug("Broadcasting changes {}", json)
+      pubsub ! SendToAll(subscriber, stringify(json))
+
+    case unknown => log.error("Received unknown message: {}", unknown)
+  }
+}
+
+/**
  * Subscribing on CRDT changes broadcasted by the Publisher.
  */
-class Subscriber extends Actor with ActorLogging {
+class Subscriber extends Actor with ActorLogging { this: Storage =>
 	val storage = ConvergentReplicatedDataTypeStorage(context.system)
   val pubsub = DistributedPubSubExtension(context.system).mediator
-
-  var gCounters 	= Map.empty[String, GCounter]
-  var pnCounters 	= Map.empty[String, PNCounter]
-  var gSet 				= Map.empty[String, GSet]
-  var twoPhaseSet = Map.empty[String, TwoPhaseSet]
 
   override def preStart(): Unit = {
     log.info("Starting CvRDT change subscriber")
@@ -126,19 +133,17 @@ class Subscriber extends Actor with ActorLogging {
           val counter = json.as[GCounter]
           log.debug("Received update g-counter[{}]", counter)
           val id = counter.id
-          val newCounter = gCounters.get(id) map { _ merge counter } getOrElse { counter }
-          gCounters = gCounters + (id -> newCounter)
-          storage.gCountersView = gCounters
+          val newCounter = findById(counter) map { _ merge counter } getOrElse { counter }
+          store(counter)
           context.system.eventStream.publish(newCounter)
           log.debug("New merged g-counter [{}]", newCounter)
-          
+
         case "pn-counter" =>
           val counter = json.as[PNCounter]
           log.debug("Received update pn-counter[{}]", counter)
           val id = counter.id
-          val newCounter = pnCounters.get(id) map { _ merge counter } getOrElse { counter }
-          pnCounters = pnCounters + (id -> newCounter) 
-          storage.pnCountersView = pnCounters
+          val newCounter = findById(counter) map { _ merge counter } getOrElse { counter }
+          store(counter)
           context.system.eventStream.publish(newCounter)
           log.debug("New merged pn-counter [{}]", newCounter)
 
@@ -146,19 +151,17 @@ class Subscriber extends Actor with ActorLogging {
           val set = json.as[GSet]
           log.debug("Received update g-set [{}]", set)
           val id = set.id
-          val newSet = gSet.get(id) map { _ merge set } getOrElse { set }
-          gSet = gSet + (id -> newSet)
-          storage.gSetView = gSet
+          val newSet = findById(set) map { _ merge set } getOrElse { set }
+          store(set)
           context.system.eventStream.publish(newSet)
           log.debug("New merged g-set [{}]", newSet)
-                    
+
         case "2p-set" =>
           val set = json.as[TwoPhaseSet]
           log.debug("Received update 2p-set [{}]", set)
           val id = set.id
-          val newSet = twoPhaseSet.get(id) map { _ merge set } getOrElse { set }
-          twoPhaseSet = twoPhaseSet + (id -> newSet)
-          storage.twoPhaseSetView = twoPhaseSet
+          val newSet = findById(set) map { _ merge set } getOrElse { set }
+          store(set)
           context.system.eventStream.publish(newSet)
           log.debug("New merged 2p-set [{}]", newSet)
 
@@ -169,22 +172,78 @@ class Subscriber extends Actor with ActorLogging {
   }
 }
 
-/**
- * Publishing (broadcasting) CRDT changes to all nodes with a Subscriber.
- */
-class Publisher extends Actor with ActorLogging {
-  val pubsub = DistributedPubSubExtension(context.system).mediator
-  val subscriber = "/user/crdt:subscriber"
+trait Storage {
+  def findById(counter: GCounter): Option[GCounter]
+  def findById(counter: PNCounter): Option[PNCounter]
+  def findById(set: GSet): Option[GSet]
+  def findById(set: TwoPhaseSet): Option[TwoPhaseSet]
 
-  override def preStart(): Unit = {
-  	log.info("Starting CvRDT change publisher")
+  def store(counter: GCounter): Unit
+  def store(counter: PNCounter): Unit
+  def store(set: GSet): Unit
+  def store(set: TwoPhaseSet): Unit
+}
+
+trait InMemoryStorage extends Storage { this: Subscriber =>
+
+  var gCounters    = Map.empty[String, GCounter]
+  var pnCounters   = Map.empty[String, PNCounter]
+  var gSets        = Map.empty[String, GSet]
+  var twoPhaseSets = Map.empty[String, TwoPhaseSet]
+
+  def findById(counter: GCounter): Option[GCounter]   = gCounters.get(counter.id)
+  def findById(counter: PNCounter): Option[PNCounter] = pnCounters.get(counter.id)
+  def findById(set: GSet): Option[GSet]               = gSets.get(set.id)
+  def findById(set: TwoPhaseSet): Option[TwoPhaseSet] = twoPhaseSets.get(set.id)
+
+  def store(counter: GCounter): Unit = {
+    gCounters = gCounters + (counter.id -> counter)
+    storage.gCountersView = gCounters
   }
 
-  def receive = {
-    case json: JsValue =>
-      log.debug("Broadcasting changes {}", json)
-      pubsub ! SendToAll(subscriber, stringify(json))
+  def store(counter: PNCounter): Unit = {
+    pnCounters = pnCounters + (counter.id -> counter)
+    storage.pnCountersView = pnCounters
+  }
 
-    case unknown => log.error("Received unknown message: {}", unknown)
+  def store(set: GSet): Unit = {
+    gSets = gSets + (set.id -> set)
+    storage.gSetView = gSets
+  }
+
+  def store(set: TwoPhaseSet): Unit = {
+    twoPhaseSets = twoPhaseSets + (set.id -> set)
+    storage.twoPhaseSetView = twoPhaseSets
+  }
+}
+
+trait BytecaskStorage extends Storage { this: Subscriber =>
+
+  def findById(counter: GCounter): Option[GCounter] = {
+    Some(counter)
+  }
+
+  def findById(counter: PNCounter): Option[PNCounter] = {
+    Some(counter)
+  }
+
+  def findById(set: GSet): Option[GSet] = {
+    Some(set)
+  }
+
+  def findById(set: TwoPhaseSet): Option[TwoPhaseSet] = {
+    Some(set)
+  }
+
+  def store(counter: GCounter): Unit = {
+  }
+
+  def store(counter: PNCounter): Unit = {
+  }
+
+  def store(set: GSet): Unit = {
+  }
+
+  def store(set: TwoPhaseSet): Unit = {
   }
 }

@@ -24,7 +24,8 @@ object BuildSettings {
 object Resolvers {
   val eligosourceReleasesRepo  = "Eligosource Releases Repo"  at "http://repo.eligotech.com/nexus/content/repositories/eligosource-releases/"
   val eligosourceSnapshotsRepo = "Eligosource Snapshots Repo" at "http://repo.eligotech.com/nexus/content/repositories/eligosource-snapshots/"
-  val temporary                = "Temporary Play JSON repo"   at "https://github.com/mandubian/mandubian-mvn/raw/master/snapshots/"
+  val sonatypeSnapshots        = "Sonatype Snapshots Repo"    at "https://oss.sonatype.org/content/groups/public"
+  val playJsonSnapshots        = "Temporary Play JSON repo"   at "https://github.com/mandubian/mandubian-mvn/raw/master/snapshots/"
 }
 
 object Versions {
@@ -40,6 +41,7 @@ object Dependencies {
   lazy val playJson    = "play"              			 %% "play-json"                 % "2.2-SNAPSHOT" % "compile"
   lazy val unfiltered  = "net.databinder"          %% "unfiltered-netty-server"   % "0.6.8"        % "compile"
   lazy val dispatch    = "net.databinder.dispatch" %% "dispatch-core"             % "0.10.0"       % "compile"
+  lazy val bytecask    = "com.github.bytecask"     %% "bytecask"                  % "1.0-SNAPSHOT" % "compile"
 
   // lazy val eventSourced      = "org.eligosource"   %% "eventsourced-core"          % EventSourcedVersion % "compile"
   // lazy val eventSourcedInMem = "org.eligosource"   %% "eventsourced-journal-inmem" % EventSourcedVersion % "compile"
@@ -57,25 +59,20 @@ object ExampleBuild extends Build {
     "akka-crdt",
     file("."),
     settings = buildSettings ++ multiJvmSettings ++ Seq (
-      resolvers            := Seq (temporary),
-      libraryDependencies ++= Seq (akkaActor, akkaCluster, akkaContrib, playJson, unfiltered, dispatch),
+      resolvers            := Seq (playJsonSnapshots, sonatypeSnapshots),
+      libraryDependencies ++= Seq (akkaActor, akkaCluster, akkaContrib, playJson, unfiltered, dispatch, bytecask),
       libraryDependencies ++= Seq (scalaTest, akkaMultiNodeTest)
     )
   ) configs(MultiJvm)
 
   lazy val multiJvmSettings = SbtMultiJvm.multiJvmSettings ++ Seq(
-    // make sure that MultiJvm test are compiled by the default test compilation
-    compile in MultiJvm <<= (compile in MultiJvm) triggeredBy (compile in Test),
-    // disable parallel tests
-    parallelExecution in Test := false,
-    // make sure that MultiJvm tests are executed by the default test target
-    executeTests in Test <<=
+    compile in MultiJvm <<= (compile in MultiJvm) triggeredBy (compile in Test), // make sure that MultiJvm test are compiled by the default test compilation
+    parallelExecution in Test := false,                                          // disable parallel tests
+    executeTests in Test <<=                                                     // make sure that MultiJvm tests are executed by the default test target
       ((executeTests in Test), (executeTests in MultiJvm)) map {
         case ((_, testResults), (_, multiJvmResults))  =>
           val results = testResults ++ multiJvmResults
           (Tests.overall(results.values), results)
     }
   )
-
 }
-

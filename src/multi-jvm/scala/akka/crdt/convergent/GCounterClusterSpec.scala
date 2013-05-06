@@ -27,9 +27,8 @@ object GCounterClusterSpecConfig extends MultiNodeConfig {
     akka.cluster.auto-join = off
     akka.cluster.auto-down = on
     akka.loggers = ["akka.testkit.TestEventListener"]
-    akka.loglevel = INFO
-    akka.remote.log-remote-lifecycle-events = off
-                                         """))
+    akka.loglevel = DEBUG
+    akka.remote.log-remote-lifecycle-events = off"""))
 }
 
 class GCounterClusterSpecMultiJvmNode1 extends GCounterClusterSpec
