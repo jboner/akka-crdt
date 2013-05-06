@@ -22,11 +22,12 @@ The "Specification" below refers to the paper [A comprehensive study of Converge
 
 * DONE Specification 11 State-based grow-only Set (G-Set)
 * DONE Specification 12 State-based 2P-Set
-* Specification 3.3.3   LWW-element Set
 
 ### Implementation details
 
 * DONE Use DistributedPubSub for broadcast of changes
+* Implement batching of the change sets
+* Investigate into using gossip based change set propagation
 
 ## Commutative (ops-based)
 
@@ -63,7 +64,7 @@ The "Specification" below refers to the paper [A comprehensive study of Converge
 
 ### Reliable Broadcast
 
-* Using eventsourced
+* Using eventsourced. [This branch](https://github.com/eligosource/eventsourced/tree/wip-akka-2.2) for now.
 
 ### Misc
 
@@ -75,7 +76,55 @@ The "Specification" below refers to the paper [A comprehensive study of Converge
 
 # DOCUMENTATION
 
-## Sets
+Based on README from [MeanGirls](https://github.com/aphyr/meangirls).
+
+## Convergent Data Structures (state-based)
+
+### G-Counter
+
+A G-Counter is a grow-only counter (inspired by vector clocks) in
+which only increment and merge are possible. Incrementing the counter
+adds 1 to the count for the current actor. Divergent histories are
+resolved by taking the maximum count for each actor (like a vector
+clock merge).  The value of the counter is the sum of all actor
+counts.
+
+JSON:
+
+    {
+      'type': 'g-counter',
+      'e': {
+        'a': 1,
+        'b': 5,
+        'c': 2
+      }
+    }
+
+- The counter value is 8.
+
+### PN-Counter
+
+PN-Counters allow the counter to be decreased by tracking the
+increments (P) separate from the decrements (N), both represented as
+internal G-Counters.  Merge is handled by merging the internal P and N
+counters. The value of the counter is the value of the P counter minus
+the value of the N counter.
+
+JSON:
+
+    {
+      'type': 'pn-counter',
+      'p': {
+        'a': 10,
+        'b': 2
+      },
+      'n': {
+        'c': 5,
+        'a': 1
+      }
+    }
+
+- P=12, N=6, so the value is 6.
 
 ### G-Set
 
@@ -83,82 +132,29 @@ Set union is commutative and convergent; hence it is always safe to have simulta
 
 JSON:
 
-``` javascript
-{
-  'type': 'g-set',
-  'e': ['a', 'b', 'c']
-}
-```
+    {
+      'type': 'g-set',
+      'e': ['a', 'b', 'c']
+    }
 
-2P-Set
----
+### 2P-Set
 
 2-phase sets consist of two g-sets: one for adding, and another for removing. To add an element, add it to the add set A. To remove e, add e to the remove set R.  An element can only be added once, and only removed once. Elements can only be removed if they are present in the set. Removes take precedence over adds.
 
 JSON:
 
-``` javascript
-{
-  'type': '2p-set',
-  'a': ['a', 'b'],
-  'r': ['b']
-}
-```
+    {
+      'type': '2p-set',
+      'a': ['a', 'b'],
+      'r': ['b']
+    }
 
 In this set, only 'a' is present.
 
-LWW-Element-Set
----
 
-LWW-Element-Set is like 2P-Set: it comprises an add G-Set (A) and a remove
-G-Set (R), with a timestamp for each element. To add an element e, add (e,
-timestamp) to the add set A. To remove e, add (e, timestamp) to the remove set
-R. An element is present iff it is in A, and no *newer* element exists in R.
-Merging is accomplished by taking the union of all A and all R, respectively.
+## Convergent Data Structures (state-based)
 
-Since the last write wins, we can safely take only the largest add, and the
-largest delete. All others can be pruned.
-
-When A and R have equal timestamps, the direction of the inequality determines
-whether adds or removes win. {'bias': 'a'} indicates that adds win. {'bias':
-'r'} indicates that removes win. The default bias is 'a'.
-
-Timestamps may be *any* ordered primitive: integers, floats, strings, etc. If a
-coordinated unique timestamp service is used, LWW-Element-Set behaves like a
-traditional consistent Set structure. If non-unique timestamps are used, the
-resolution of the timestamp determines the window under which conflicts will be
-resolved by the bias towards adds or deletes.
-
-TODO: define sorting strategies for strings. By byte value, UTF-8 ordering,
-numeric, etc...
-
-In JSON, we write the set as a list of 2- or 3-tuples: [element, add-time] or
-[element, add-time, delete-time]
-
-JSON:
-
-``` javascript
-{
-  'type': 'lww-e-set',
-  'bias': 'a',
-  'e': [
-    ['a', 0],
-    ['b', 1, 2],
-    ['c', 2, 1],
-    ['d', 3, 3]
-  ]
-}
-```
-
-In this set:
-
-- a was created at 0 and still exists.
-- b was deleted after creation; it does not exist.
-- c was created after deletion; it exists
-- d was created and deleted at the same time. Bias a means we prefer adds, so it exists.
-
-OR-Set
----
+### OR-Set
 
 Observed-Removed Sets support adding and removing elements in a causally
 consistent manner. It resembles LWW-Set, except that instead of times, unique
@@ -181,23 +177,20 @@ Tags may be any primitive: strings, ints, floats, etc.
 
 JSON:
 
-``` javascript
-{
-  'type': 'or-set',
-  'e': [
-    ['a', [1]],
-    ['b', [1], [1]],
-    ['c', [1, 2], [2, 3]]
-  ]
-}
-```
+    {
+      'type': 'or-set',
+      'e': [
+        ['a', [1]],
+        ['b', [1], [1]],
+        ['c', [1, 2], [2, 3]]
+      ]
+    }
 
 - a exists.
 - b's only insertion was deleted, so it does not exist.
 - c has two insertions, only one of which was deleted. It exists.
 
-Max-Change-Sets
----
+### Max-Change-Sets
 
 MC-Sets resolve divergent histories for an element by choosing the value which
 has changed the most. You cannot delete an element which is not present, and
@@ -222,73 +215,15 @@ In JSON, max-change sets are represented as a list of [element, n] tuples.
 
 JSON:
 
-``` javascript
-{
-  'type': 'mc-set',
-  'e': [
-    ['a', 1],
-    ['b', 2],
-    ['c', 3]
-  ]
-}
-```
+    {
+      'type': 'mc-set',
+      'e': [
+        ['a', 1],
+        ['b', 2],
+        ['c', 3]
+      ]
+    }
 
 - a is present
 - b is absent
 - c is present
-
-Counters
-===
-
-G-Counter
----
-
-A G-Counter is a grow-only counter (inspired by vector clocks) in
-which only increment and merge are possible. Incrementing the counter
-adds 1 to the count for the current actor. Divergent histories are
-resolved by taking the maximum count for each actor (like a vector
-clock merge).  The value of the counter is the sum of all actor
-counts.
-
-JSON:
-
-``` javascript
-{
-  'type': 'g-counter',
-  'e': {
-    'a': 1,
-    'b': 5,
-    'c': 2
-  }
-}
-```
-
-- The counter value is 8.
-
-PN-Counter
----
-
-PN-Counters allow the counter to be decreased by tracking the
-increments (P) separate from the decrements (N), both represented as
-internal G-Counters.  Merge is handled by merging the internal P and N
-counters. The value of the counter is the value of the P counter minus
-the value of the N counter.
-
-JSON:
-
-``` javascript
-{
-  'type': 'pn-counter',
-  'p': {
-    'a': 10,
-    'b': 2
-  },
-  'n': {
-    'c': 5,
-    'a': 1
-  }
-}
-```
-
-- P=12, N=6, so the value is 6.
-
