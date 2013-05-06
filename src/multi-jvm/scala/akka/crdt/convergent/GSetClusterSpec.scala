@@ -62,13 +62,13 @@ class GSetClusterSpec extends MultiNodeSpec(GSetClusterSpecConfig) with STMultiN
 
       // create CRDT on node1
       runOn(node1) {
-        storage.create[GSet]("users").get.value.size must be(0)
+        storage.getOrCreate[GSet]("users").get.value.size must be(0)
       }
       enterBarrier("stored g-set on node1")
 
       // find CRDT by id on the other nodes
       runOn(node2, node3) {
-        awaitAssert(storage.findById[GSet]("users").get) // wait until it does not throw exception
+        awaitAssert(storage.getOrCreate[GSet]("users").get) // wait until it does not throw exception
       }
       enterBarrier("g-set exists on all nodes")
 
@@ -78,21 +78,21 @@ class GSetClusterSpec extends MultiNodeSpec(GSetClusterSpecConfig) with STMultiN
 
       // let each node update the set
       runOn(node1) {
-        storage.findById[GSet]("users") map (_ + parse(coltrane)) foreach (storage.update(_))
+        storage.getOrCreate[GSet]("users") map (_ + parse(coltrane)) foreach (storage.update(_))
       }
       runOn(node2) {
-        storage.findById[GSet]("users") map (_ + parse(rollins)) foreach (storage.update(_))
+        storage.getOrCreate[GSet]("users") map (_ + parse(rollins)) foreach (storage.update(_))
       }
       runOn(node3) {
-        storage.findById[GSet]("users") map (_ + parse(parker)) foreach (storage.update(_))
-        storage.findById[GSet]("users") map (_ + parse(rollins)) foreach (storage.update(_)) // try to add the same element concurrently
+        storage.getOrCreate[GSet]("users") map (_ + parse(parker)) foreach (storage.update(_))
+        storage.getOrCreate[GSet]("users") map (_ + parse(rollins)) foreach (storage.update(_)) // try to add the same element concurrently
       }
       enterBarrier("updated-set-on-all-nodes")
 
       // make sure each node sees the converged set with all the users
       runOn(node1, node2, node3) {
-        awaitCond(storage.findById[GSet]("users").get.value.size == 3, 10 seconds)
-        storage.findById[GSet]("users") match {
+        awaitCond(storage.getOrCreate[GSet]("users").get.value.size == 3, 10 seconds)
+        storage.getOrCreate[GSet]("users") match {
           case Success(set) =>
             set.id must be("users")
             set.`type` must be("g-set")

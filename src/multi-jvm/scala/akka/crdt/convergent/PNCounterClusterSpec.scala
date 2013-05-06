@@ -59,32 +59,32 @@ class PNCounterClusterSpec extends MultiNodeSpec(PNCounterClusterSpecConfig) wit
 
       // create CRDT on node1
       runOn(node1) {
-        storage.create[PNCounter]("jonas").get.value must be(0)
+        storage.getOrCreate[PNCounter]("jonas").get.value must be(0)
       }
       enterBarrier("stored pn-counter on node1")
 
       // find CRDT by id on the other nodes
       runOn(node2, node3) {
-        awaitAssert(storage.findById[PNCounter]("jonas").get) // wait until it does not throw exception
+        awaitAssert(storage.getOrCreate[PNCounter]("jonas").get) // wait until it does not throw exception
       }
       enterBarrier("pn-counter exists on all nodes")
 
       // let each node update the counter (incrementing or decrementing)
       runOn(node1) {
-        storage.findById[PNCounter]("jonas") map (_ + (node1.name, 2)) foreach (storage.update(_))
+        storage.getOrCreate[PNCounter]("jonas") map (_ + (node1.name, 2)) foreach (storage.update(_))
       }
       runOn(node2) {
-        storage.findById[PNCounter]("jonas") map (_ - node2.name) foreach (storage.update(_))
+        storage.getOrCreate[PNCounter]("jonas") map (_ - node2.name) foreach (storage.update(_))
       }
       runOn(node3) {
-        storage.findById[PNCounter]("jonas") map (_ + node3.name) foreach (storage.update(_))
-        storage.findById[PNCounter]("jonas") map (_ - node3.name) foreach (storage.update(_))
+        storage.getOrCreate[PNCounter]("jonas") map (_ + node3.name) foreach (storage.update(_))
+        storage.getOrCreate[PNCounter]("jonas") map (_ - node3.name) foreach (storage.update(_))
       }
       enterBarrier("updated-counter-on-all-nodes")
 
       // make sure each node sees the converged counter value of 3
       runOn(node1, node2, node3) {
-        awaitCond(storage.findById[PNCounter]("jonas").get.value == 1, 10 seconds)
+        awaitCond(storage.getOrCreate[PNCounter]("jonas").get.value == 1, 10 seconds)
       }
 
       enterBarrier("verified-counter-on-all-nodes")

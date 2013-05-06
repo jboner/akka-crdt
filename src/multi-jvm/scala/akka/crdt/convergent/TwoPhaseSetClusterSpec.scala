@@ -62,13 +62,13 @@ class TwoPhaseSetClusterSpec extends MultiNodeSpec(TwoPhaseSetClusterSpecConfig)
 
       // create CRDT on node1
       runOn(node1) {
-        storage.create[TwoPhaseSet]("users").get.value.size must be(0)
+        storage.getOrCreate[TwoPhaseSet]("users").get.value.size must be(0)
       }
       enterBarrier("stored 2p-set on node1")
 
       // find CRDT by id on the other nodes
       runOn(node2, node3) {
-        awaitAssert(storage.findById[TwoPhaseSet]("users").get) // wait until it does not throw exception
+        awaitAssert(storage.getOrCreate[TwoPhaseSet]("users").get) // wait until it does not throw exception
       }
       enterBarrier("2p-set exists on all nodes")
 
@@ -78,20 +78,20 @@ class TwoPhaseSetClusterSpec extends MultiNodeSpec(TwoPhaseSetClusterSpecConfig)
 
       // let each node update the set
       runOn(node1) {
-        storage.findById[TwoPhaseSet]("users") map (_ + parse(coltrane)) foreach (storage.update(_))
+        storage.getOrCreate[TwoPhaseSet]("users") map (_ + parse(coltrane)) foreach (storage.update(_))
       }
       runOn(node2) {
-        storage.findById[TwoPhaseSet]("users") map (_ + parse(rollins)) foreach (storage.update(_))
+        storage.getOrCreate[TwoPhaseSet]("users") map (_ + parse(rollins)) foreach (storage.update(_))
       }
       runOn(node3) {
-        storage.findById[TwoPhaseSet]("users") map (_ + parse(parker)) foreach (storage.update(_))
+        storage.getOrCreate[TwoPhaseSet]("users") map (_ + parse(parker)) foreach (storage.update(_))
       }
       enterBarrier("all-nodes-have-added-an-item")
 
       // make sure each node sees the converged set with all the users
       runOn(node1, node2, node3) {
-        awaitCond(storage.findById[TwoPhaseSet]("users").get.value.size == 3, 10 seconds)
-        storage.findById[TwoPhaseSet]("users") match {
+        awaitCond(storage.getOrCreate[TwoPhaseSet]("users").get.value.size == 3, 10 seconds)
+        storage.getOrCreate[TwoPhaseSet]("users") match {
           case Success(set) =>
             val usersAsStrings = set.value.map(stringify(_))
             usersAsStrings.contains(coltrane) must be(true)
@@ -105,14 +105,14 @@ class TwoPhaseSetClusterSpec extends MultiNodeSpec(TwoPhaseSetClusterSpecConfig)
 
       // remove one of the items
       runOn(node3) {
-        storage.findById[TwoPhaseSet]("users") map (_ - parse(coltrane)) foreach (storage.update(_))
+        storage.getOrCreate[TwoPhaseSet]("users") map (_ - parse(coltrane)) foreach (storage.update(_))
       }
       enterBarrier("one-node-have-deleted-an-item")
 
       // make sure each node sees the converged set with all the users
       runOn(node1, node2, node3) {
-        awaitCond(storage.findById[TwoPhaseSet]("users").get.value.size == 2, 10 seconds)
-        storage.findById[TwoPhaseSet]("users") match {
+        awaitCond(storage.getOrCreate[TwoPhaseSet]("users").get.value.size == 2, 10 seconds)
+        storage.getOrCreate[TwoPhaseSet]("users") match {
           case Success(set) =>
             val usersAsStrings = set.value.map(stringify(_))
             usersAsStrings.contains(coltrane) must be(false)

@@ -64,8 +64,8 @@ class BroadcastClusterSpec extends MultiNodeSpec(BroadcastClusterSpecConfig) wit
 
       // find by id on the other nodes
       runOn(node2, node3) {
-        awaitAssert(storage.findById[GCounter]("jonas").get)
-        storage.findById[GCounter]("jonas") match {
+				awaitAssert(storage.getOrCreate[GCounter]("jonas").get)
+        storage.getOrCreate[GCounter]("jonas") match {
           case Success(counter) =>
             counter.id must be("jonas")
             counter.`type` must be("g-counter")
@@ -77,14 +77,14 @@ class BroadcastClusterSpec extends MultiNodeSpec(BroadcastClusterSpecConfig) wit
 
       // create in the storage and have it updated automatically
       runOn(node2) {
-        val gcounter = storage.create[GCounter]("viktor")
+        val gcounter = storage.getOrCreate[GCounter]("viktor")
       }
       enterBarrier("stored g-counter on node2")
 
       // find by id on the other nodes
       runOn(node1, node3) {
-        awaitAssert(storage.findById[GCounter]("viktor").get)
-        storage.findById[GCounter]("viktor") match {
+        awaitAssert(storage.getOrCreate[GCounter]("viktor").get)
+        storage.getOrCreate[GCounter]("viktor") match {
           case Success(counter) =>
             counter.id must be("viktor")
             counter.`type` must be("g-counter")

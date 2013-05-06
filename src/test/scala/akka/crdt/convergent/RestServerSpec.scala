@@ -19,16 +19,16 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 
 class RestServerSpec extends WordSpec with MustMatchers with BeforeAndAfter {
-	val system = ActorSystem("rest", ConfigFactory.parseString("""
+	val system = ActorSystem("RestServerSpec", ConfigFactory.parseString("""
 		akka {
 			actor.provider = akka.cluster.ClusterActorRefProvider
-			loglevel = DEBUG
+			loglevel = INFO
 			loggers = ["akka.testkit.TestEventListener"]
 			remote {
 				enabled-transports = ["akka.remote.netty.tcp"]
 				netty.tcp {
       		hostname = "127.0.0.1"
-      		port = 2553
+      		port = 0
 				}
 				log-remote-lifecycle-events = off
 			}
@@ -52,7 +52,7 @@ class RestServerSpec extends WordSpec with MustMatchers with BeforeAndAfter {
   	import dispatch._, Defaults._
   	val url = host("127.0.0.1", 9000)
   	
-    "serve unfiltered text" in {
+    "serve unfiltered text" ignore {
       val response = Await.result(Http(url / "ping"), timeout)
       response.getResponseBody().trim() must be("Pong")
     }
