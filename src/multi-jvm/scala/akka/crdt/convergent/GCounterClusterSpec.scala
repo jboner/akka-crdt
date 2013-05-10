@@ -27,7 +27,7 @@ object GCounterClusterSpecConfig extends MultiNodeConfig {
     akka.cluster.auto-join = off
     akka.cluster.auto-down = on
     akka.loggers = ["akka.testkit.TestEventListener"]
-    akka.loglevel = DEBUG
+    akka.loglevel = INFO
     akka.remote.log-remote-lifecycle-events = off"""))
 }
 
@@ -43,11 +43,11 @@ class GCounterClusterSpec extends MultiNodeSpec(GCounterClusterSpecConfig) with 
 
   def initialParticipants = roles.size
 
-  "A ConvergentReplicatedDataTypeStorage" must {
+  "A ConvergentReplicatedDataTypeDatabase" must {
 
     "Make sure that a GCounter, used by multiple nodes, eventually converge to a consistent value" in {
       val cluster = Cluster(system)
-      val storage = ConvergentReplicatedDataTypeStorage(system)
+      val storage = ConvergentReplicatedDataTypeDatabase(system)
 
       runOn(node1) { cluster join node1 }
       runOn(node2) { cluster join node1 }

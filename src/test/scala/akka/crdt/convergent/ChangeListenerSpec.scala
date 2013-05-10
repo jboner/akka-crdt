@@ -40,7 +40,7 @@ class ChangeListenerSpec
 	
 	case object Kick    		  
   
-	val storage = ConvergentReplicatedDataTypeStorage(system)
+	val storage = ConvergentReplicatedDataTypeDatabase(system)
   
   val listener = system.actorOf(Props(new Actor {
     override def preStart(): Unit =
