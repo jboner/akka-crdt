@@ -23,7 +23,7 @@ trait ConvergentReplicatedDataTypeSet extends ConvergentReplicatedDataType {
 
   def contains(element: JsValue): Boolean = value contains element
 
-  def foreach(f: JsValue => Unit): Unit = value.toSeq foreach f
+  def foreach(f: JsValue ⇒ Unit): Unit = value.toSeq foreach f
 
   def isEmpty: Boolean = value.isEmpty
 

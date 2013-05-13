@@ -33,13 +33,11 @@ object GSet {
   implicit object format extends Format[GSet] {
     def reads(json: JsValue): JsResult[GSet] = JsSuccess(GSet(
       (json \ "id").as[String],
-      (json \ "state").as[Set[JsValue]]
-    ))
+      (json \ "state").as[Set[JsValue]]))
 
     def writes(set: GSet): JsValue = JsObject(Seq(
-      "type"  -> JsString(set.`type`),
-      "id"    -> JsString(set.id),
-      "state" -> Json.toJson(set.state)
-    ))
+      "type" -> JsString(set.`type`),
+      "id" -> JsString(set.id),
+      "state" -> Json.toJson(set.state)))
   }
 }

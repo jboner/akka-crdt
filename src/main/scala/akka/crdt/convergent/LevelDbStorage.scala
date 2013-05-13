@@ -9,10 +9,10 @@ import scala.reflect.ClassTag
 import scala.collection.immutable
 import play.api.libs.json.Json.parse
 import akka.event.LoggingAdapter
-import org.iq80.leveldb.{ReadOptions, WriteOptions, Options, CompressionType, WriteBatch, DB, DBFactory}
+import org.iq80.leveldb.{ ReadOptions, WriteOptions, Options, CompressionType, WriteBatch, DB, DBFactory }
 import org.iq80.leveldb.impl.Iq80DBFactory
 import org.fusesource.leveldbjni.JniDBFactory
-import org.fusesource.leveldbjni.JniDBFactory.{asString, bytes}
+import org.fusesource.leveldbjni.JniDBFactory.{ asString, bytes }
 import java.io.File
 
 class LevelDbStorage(
@@ -25,7 +25,7 @@ class LevelDbStorage(
   private val verifyChecksums: Boolean = false
   private val useNative: Boolean = false
 
-  private val levelDbReadOptions: ReadOptions   = new ReadOptions().verifyChecksums(verifyChecksums)
+  private val levelDbReadOptions: ReadOptions = new ReadOptions().verifyChecksums(verifyChecksums)
   private val levelDbWriteOptions: WriteOptions = new WriteOptions().sync(useFsync)
 
   private val factory: DBFactory = if (useNative) JniDBFactory.factory else Iq80DBFactory.factory
@@ -37,66 +37,67 @@ class LevelDbStorage(
 
   private def createDb(filename: String): DB = factory.open(new File(filename), leveldbOptions)
 
-  private val gCountersFilename    = s"${nodename}_g_counters"
-  private val pnCountersFilename   = s"${nodename}_pn_counters"
-  private val gSetsFilename        = s"${nodename}_g_sets"
+  private val gCountersFilename = s"${nodename}_g_counters"
+  private val pnCountersFilename = s"${nodename}_pn_counters"
+  private val gSetsFilename = s"${nodename}_g_sets"
   private val twoPhaseSetsFilename = s"${nodename}_2p_sets"
 
-  private val gCounters: DB    = createDb(gCountersFilename)
-  private val pnCounters: DB   = createDb(pnCountersFilename)
-  private val gSets: DB        = createDb(gSetsFilename)
+  private val gCounters: DB = createDb(gCountersFilename)
+  private val pnCounters: DB = createDb(pnCountersFilename)
+  private val gSets: DB = createDb(gSetsFilename)
   private val twoPhaseSets: DB = createDb(twoPhaseSetsFilename)
 
   private val databases: List[(String, DB)] =
     (gCountersFilename, gCounters) ::
-    (pnCountersFilename, pnCounters) ::
-    (gSetsFilename, gSets) ::
-    (twoPhaseSetsFilename, twoPhaseSets) ::
-    Nil
+      (pnCountersFilename, pnCounters) ::
+      (gSetsFilename, gSets) ::
+      (twoPhaseSetsFilename, twoPhaseSets) ::
+      Nil
 
-  def findById[T  <: ConvergentReplicatedDataType : ClassTag](id: String): Try[T] = Try {
+  def findById[T <: ConvergentReplicatedDataType: ClassTag](id: String): Try[T] = Try {
     val clazz = implicitly[ClassTag[T]].runtimeClass
     val crdt =
-      if (classOf[GCounter].isAssignableFrom(clazz))         parse(asString(gCounters.get(bytes(id)))).as[GCounter]
-      else if (classOf[PNCounter].isAssignableFrom(clazz))   parse(asString(pnCounters.get(bytes(id)))).as[PNCounter]
-      else if (classOf[GSet].isAssignableFrom(clazz))        parse(asString(gSets.get(bytes(id)))).as[GSet]
+      if (classOf[GCounter].isAssignableFrom(clazz)) parse(asString(gCounters.get(bytes(id)))).as[GCounter]
+      else if (classOf[PNCounter].isAssignableFrom(clazz)) parse(asString(pnCounters.get(bytes(id)))).as[PNCounter]
+      else if (classOf[GSet].isAssignableFrom(clazz)) parse(asString(gSets.get(bytes(id)))).as[GSet]
       else if (classOf[TwoPhaseSet].isAssignableFrom(clazz)) parse(asString(twoPhaseSets.get(bytes(id)))).as[TwoPhaseSet]
       else throw new ClassCastException(s"Could create new CvRDT with id [$id] and type [$clazz]")
     crdt.asInstanceOf[T]
   }
 
-  def store(counter: GCounter): Unit  = gCounters.put(bytes(counter.id), bytes(counter.toString))
+  def store(counter: GCounter): Unit = gCounters.put(bytes(counter.id), bytes(counter.toString))
   def store(counter: PNCounter): Unit = pnCounters.put(bytes(counter.id), bytes(counter.toString))
-  def store(set: GSet): Unit          = gSets.put(bytes(set.id), bytes(set.toString))
-  def store(set: TwoPhaseSet): Unit   = twoPhaseSets.put(bytes(set.id), bytes(set.toString))
+  def store(set: GSet): Unit = gSets.put(bytes(set.id), bytes(set.toString))
+  def store(set: TwoPhaseSet): Unit = twoPhaseSets.put(bytes(set.id), bytes(set.toString))
 
   /**
    * Store a batch.
    */
-  def store[T <: ConvergentReplicatedDataType : ClassTag](crdts: immutable.Seq[T]): Unit = {
+  def store[T <: ConvergentReplicatedDataType: ClassTag](crdts: immutable.Seq[T]): Unit = {
     val clazz = implicitly[ClassTag[T]].runtimeClass
 
     val db =
-      if (classOf[GCounter].isAssignableFrom(clazz))         gCounters
-      else if (classOf[PNCounter].isAssignableFrom(clazz))   pnCounters
-      else if (classOf[GSet].isAssignableFrom(clazz))        gSets
+      if (classOf[GCounter].isAssignableFrom(clazz)) gCounters
+      else if (classOf[PNCounter].isAssignableFrom(clazz)) pnCounters
+      else if (classOf[GSet].isAssignableFrom(clazz)) gSets
       else if (classOf[TwoPhaseSet].isAssignableFrom(clazz)) twoPhaseSets
       else throw new ClassCastException(s"Could store CvRDT with type [$clazz]")
 
-    writeBatch(db) { batch =>
-      crdts foreach { crdt =>
+    writeBatch(db) { batch ⇒
+      crdts foreach { crdt ⇒
         batch put (bytes(crdt.id), bytes(crdt.toString))
       }
     }
   }
 
-  override def close(): Unit = databases foreach { case (_, db) => db.close() }
+  override def close(): Unit = databases foreach { case (_, db) ⇒ db.close() }
 
-  override def destroy(): Unit = databases foreach { case (filename, _) =>
-    factory.destroy(new File(filename), new Options)
+  override def destroy(): Unit = databases foreach {
+    case (filename, _) ⇒
+      factory.destroy(new File(filename), new Options)
   }
 
-  private def writeBatch(db: DB)(p: WriteBatch => Unit): Unit = {
+  private def writeBatch(db: DB)(p: WriteBatch ⇒ Unit): Unit = {
     val batch = db.createWriteBatch()
     try {
       p(batch)
@@ -106,7 +107,6 @@ class LevelDbStorage(
     }
   }
 }
-
 
 /*
 TODO: now we serialize the CRDT -> JSON String -> binary, should we serialize CRDT -> Play JSON -> binary instead?

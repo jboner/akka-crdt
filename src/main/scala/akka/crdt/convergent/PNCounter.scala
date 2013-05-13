@@ -54,14 +54,12 @@ object PNCounter {
     def reads(json: JsValue): JsResult[PNCounter] = JsSuccess(new PNCounter(
       (json \ "id").as[String],
       (json \ "increments").as[GCounter],
-      (json \ "decrements").as[GCounter]
-    ))
+      (json \ "decrements").as[GCounter]))
 
     def writes(counter: PNCounter): JsValue = JsObject(Seq(
-      "type"       -> JsString(counter.`type`),
-      "id"         -> JsString(counter.id),
+      "type" -> JsString(counter.`type`),
+      "id" -> JsString(counter.id),
       "increments" -> Json.toJson(counter.increments),
-      "decrements" -> Json.toJson(counter.decrements)
-    ))
+      "decrements" -> Json.toJson(counter.decrements)))
   }
 }

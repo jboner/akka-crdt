@@ -32,7 +32,7 @@ case class GCounter(
   }
 
   def merge(that: GCounter): GCounter = {
-    that.state.foldLeft(this) { (acc, record) => acc + (record._1, record._2) }
+    that.state.foldLeft(this) { (acc, record) ⇒ acc + (record._1, record._2) }
   }
 
   override def toString: String = Json.stringify(GCounter.format.writes(this))
@@ -42,13 +42,11 @@ object GCounter {
   implicit object format extends Format[GCounter] {
     def reads(json: JsValue): JsResult[GCounter] = JsSuccess(GCounter(
       (json \ "id").as[String],
-      (json \ "state").as[Map[String, Int]]
-    ))
+      (json \ "state").as[Map[String, Int]]))
 
     def writes(counter: GCounter): JsValue = JsObject(Seq(
-      "type"  -> JsString(counter.`type`),
-      "id"    -> JsString(counter.id),
-      "state" -> Json.toJson(counter.state)
-    ))
+      "type" -> JsString(counter.`type`),
+      "id" -> JsString(counter.id),
+      "state" -> Json.toJson(counter.state)))
   }
 }

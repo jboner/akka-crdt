@@ -5,12 +5,12 @@
 package akka.crdt.convergent
 
 import akka.actor._
-import akka.event.{Logging, LogSource}
+import akka.event.{ Logging, LogSource }
 import akka.contrib.pattern.DistributedPubSubExtension
 import akka.contrib.pattern.DistributedPubSubMediator
 import akka.contrib.pattern.DistributedPubSubMediator._
 import akka.cluster.Cluster
-import play.api.libs.json.Json.{toJson, parse, stringify}
+import play.api.libs.json.Json.{ toJson, parse, stringify }
 import play.api.libs.json.JsValue
 import scala.util.Try
 import scala.reflect.ClassTag
@@ -36,29 +36,29 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
   private implicit val system = sys
 
   private val log = Logging(sys, ConvergentReplicatedDataTypeDatabase.this)
-  
+
   private val nodename = Cluster(sys).selfAddress.hostPort.replace('@', '_').replace(':', '_')
-  
+
   private val settings = new ConvergentReplicatedDataTypeSettings(system.settings.config, system.name)
 
   // FIXME make configurable from 'settings'
   private val storage = new LevelDbStorage(s"./leveldb/$nodename", settings, log)
   //private val storage = new InMemoryStorage(log) // FIXME make configurable from 'settings'
-  	
+
   private val publisher = system.actorOf(Props[Publisher], name = "crdt:publisher")
 
   private val subscriber = system.actorOf(Props(new Subscriber(storage)), name = "crdt:subscriber")
 
-  def getOrCreate[T <: ConvergentReplicatedDataType : ClassTag](id: String): Try[T] = Try {
+  def getOrCreate[T <: ConvergentReplicatedDataType: ClassTag](id: String): Try[T] = Try {
     val clazz = implicitly[ClassTag[T]].runtimeClass
     if (classOf[GCounter].isAssignableFrom(clazz))
-    	(storage.findById[GCounter](id) getOrElse update(GCounter(id))).asInstanceOf[T]
+      (storage.findById[GCounter](id) getOrElse update(GCounter(id))).asInstanceOf[T]
     else if (classOf[PNCounter].isAssignableFrom(clazz))
-    	(storage.findById[PNCounter](id) getOrElse update(PNCounter(id))).asInstanceOf[T]
+      (storage.findById[PNCounter](id) getOrElse update(PNCounter(id))).asInstanceOf[T]
     else if (classOf[GSet].isAssignableFrom(clazz))
-    	(storage.findById[GSet](id) getOrElse update(GSet(id))).asInstanceOf[T]
+      (storage.findById[GSet](id) getOrElse update(GSet(id))).asInstanceOf[T]
     else if (classOf[TwoPhaseSet].isAssignableFrom(clazz))
-    	(storage.findById[TwoPhaseSet](id) getOrElse update(TwoPhaseSet(id))).asInstanceOf[T]
+      (storage.findById[TwoPhaseSet](id) getOrElse update(TwoPhaseSet(id))).asInstanceOf[T]
     else throw new ClassCastException(s"Could create new CvRDT with id [$id] and type [$clazz]")
   }
 
@@ -104,11 +104,11 @@ class Publisher extends Actor with ActorLogging {
   }
 
   def receive = {
-    case json: JsValue =>
+    case json: JsValue ⇒
       log.debug("Broadcasting changes {}", json)
       pubsub ! SendToAll(subscriber, stringify(json))
 
-    case unknown => log.error("Received unknown message: {}", unknown)
+    case unknown ⇒ log.error("Received unknown message: {}", unknown)
   }
 }
 
@@ -126,13 +126,13 @@ class Subscriber(storage: Storage) extends Actor with ActorLogging {
   // ================================================================================
   // FIXME make use of batching (add a time window): 'store(crdts: immutable.Seq[T])'
   // ================================================================================
-  
+
   def receive: Receive = {
-    case jsonString: String =>
+    case jsonString: String ⇒
       val json = parse(jsonString)
       (json \ "type").as[String] match {
 
-      	case "g-counter" =>
+        case "g-counter" ⇒
           val counter = json.as[GCounter]
           log.debug("Received update g-counter[{}]", counter)
           val id = counter.id
@@ -141,7 +141,7 @@ class Subscriber(storage: Storage) extends Actor with ActorLogging {
           context.system.eventStream.publish(newCounter)
           log.debug("New merged g-counter [{}]", newCounter)
 
-        case "pn-counter" =>
+        case "pn-counter" ⇒
           val counter = json.as[PNCounter]
           log.debug("Received update pn-counter[{}]", counter)
           val id = counter.id
@@ -150,7 +150,7 @@ class Subscriber(storage: Storage) extends Actor with ActorLogging {
           context.system.eventStream.publish(newCounter)
           log.debug("New merged pn-counter [{}]", newCounter)
 
-        case "g-set" =>
+        case "g-set" ⇒
           val set = json.as[GSet]
           log.debug("Received update g-set [{}]", set)
           val id = set.id
@@ -159,7 +159,7 @@ class Subscriber(storage: Storage) extends Actor with ActorLogging {
           context.system.eventStream.publish(newSet)
           log.debug("New merged g-set [{}]", newSet)
 
-        case "2p-set" =>
+        case "2p-set" ⇒
           val set = json.as[TwoPhaseSet]
           log.debug("Received update 2p-set [{}]", set)
           val id = set.id
@@ -168,9 +168,9 @@ class Subscriber(storage: Storage) extends Actor with ActorLogging {
           context.system.eventStream.publish(newSet)
           log.debug("New merged 2p-set [{}]", newSet)
 
-        case _ => log.error("Received JSON is not a CvRDT: {}", jsonString)
+        case _ ⇒ log.error("Received JSON is not a CvRDT: {}", jsonString)
       }
 
-    case unknown => log.error("Received unknown message: {}", unknown)
+    case unknown ⇒ log.error("Received unknown message: {}", unknown)
   }
 }

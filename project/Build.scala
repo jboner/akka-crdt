@@ -8,6 +8,8 @@ import sbt._
 import Keys._
 import com.typesafe.sbt.SbtMultiJvm
 import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.{ MultiJvm }
+import com.typesafe.sbt.SbtScalariform
+import com.typesafe.sbt.SbtScalariform.ScalariformKeys
 
 object BuildSettings {
   val buildOrganization = "com.typesafe.akka"
@@ -90,7 +92,7 @@ object ExampleBuild extends Build {
   lazy val akkaCRDT = Project (
     "akka-crdt",
     file("."),
-    settings = buildSettings ++ multiJvmSettings ++ Seq (
+    settings = buildSettings ++ multiJvmSettings ++ formatSettings ++ Seq (
       resolvers            := Seq (playJsonSnapshots, sonatypeSnapshots),
       libraryDependencies ++= Seq (akkaActor, akkaCluster, akkaContrib, playJson, unfiltered, dispatch, levelDbNative, levelDbJava),
       libraryDependencies ++= Seq (scalaTest, akkaMultiNodeTest)
@@ -107,4 +109,17 @@ object ExampleBuild extends Build {
           (Tests.overall(results.values), results)
     }
   )
+  
+  lazy val formatSettings = SbtScalariform.scalariformSettings ++ Seq(
+    ScalariformKeys.preferences in Compile := formattingPreferences,
+    ScalariformKeys.preferences in Test    := formattingPreferences
+  )
+
+  def formattingPreferences = {
+    import scalariform.formatter.preferences._
+    FormattingPreferences()
+    .setPreference(RewriteArrowSymbols, true)
+    .setPreference(AlignParameters, true)
+    .setPreference(AlignSingleLineCaseStatements, true)
+  }
 }

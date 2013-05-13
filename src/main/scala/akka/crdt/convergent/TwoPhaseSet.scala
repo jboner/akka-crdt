@@ -56,14 +56,12 @@ object TwoPhaseSet {
     def reads(json: JsValue): JsResult[TwoPhaseSet] = JsSuccess(TwoPhaseSet(
       (json \ "id").as[String],
       (json \ "adds").as[GSet],
-      (json \ "removes").as[GSet]
-    ))
+      (json \ "removes").as[GSet]))
 
     def writes(set: TwoPhaseSet): JsValue = JsObject(Seq(
-      "type"    -> JsString(set.`type`),
-      "id"      -> JsString(set.id),
-      "adds"    -> Json.toJson(set.adds),
-      "removes" -> Json.toJson(set.removes)
-    ))
+      "type" -> JsString(set.`type`),
+      "id" -> JsString(set.id),
+      "adds" -> Json.toJson(set.adds),
+      "removes" -> Json.toJson(set.removes)))
   }
 }
