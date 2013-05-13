@@ -11,6 +11,7 @@ import play.api.libs.json.JsValue
 trait ConvergentReplicatedDataType {
   def `type`: String
   def id: String
+  def toString: String
 }
 
 trait ConvergentReplicatedDataTypeCounter extends ConvergentReplicatedDataType {

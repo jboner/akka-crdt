@@ -9,10 +9,9 @@ import akka.event.{Logging, LogSource}
 import akka.contrib.pattern.DistributedPubSubExtension
 import akka.contrib.pattern.DistributedPubSubMediator
 import akka.contrib.pattern.DistributedPubSubMediator._
-
-import play.api.libs.json.Json._
-import play.api.libs.json._
-
+import akka.cluster.Cluster
+import play.api.libs.json.Json.{toJson, parse, stringify}
+import play.api.libs.json.JsValue
 import scala.util.Try
 import scala.reflect.ClassTag
 
@@ -36,17 +35,21 @@ object ConvergentReplicatedDataTypeDatabase
 class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Extension {
   private implicit val system = sys
 
-  val log = Logging(sys, ConvergentReplicatedDataTypeDatabase.this)
-
+  private val log = Logging(sys, ConvergentReplicatedDataTypeDatabase.this)
+  
+  private val nodename = Cluster(sys).selfAddress.hostPort.replace('@', '_').replace(':', '_')
+  
   private val settings = new ConvergentReplicatedDataTypeSettings(system.settings.config, system.name)
 
-  private val storage = new InMemoryStorage // FIXME make configurable from 'settings'
+  // FIXME make configurable from 'settings'
+  private val storage = new LevelDbStorage(s"./leveldb/$nodename", settings, log)
+  //private val storage = new InMemoryStorage(log) // FIXME make configurable from 'settings'
   	
   private val publisher = system.actorOf(Props[Publisher], name = "crdt:publisher")
 
   private val subscriber = system.actorOf(Props(new Subscriber(storage)), name = "crdt:subscriber")
 
-  def getOrCreate[T : ClassTag](id: String): Try[T] = Try {
+  def getOrCreate[T <: ConvergentReplicatedDataType : ClassTag](id: String): Try[T] = Try {
     val clazz = implicitly[ClassTag[T]].runtimeClass
     if (classOf[GCounter].isAssignableFrom(clazz))
     	(storage.findById[GCounter](id) getOrElse update(GCounter(id))).asInstanceOf[T]
@@ -83,6 +86,7 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
     log.info("Shutting down ConvergentReplicatedDataTypeDatabase")
     system.stop(subscriber)
     system.stop(publisher)
+    storage.destroy()
   }
 
   private def publish(json: JsValue): Unit = publisher ! json
@@ -119,6 +123,10 @@ class Subscriber(storage: Storage) extends Actor with ActorLogging {
     pubsub ! Put(self)
   }
 
+  // ================================================================================
+  // FIXME make use of batching (add a time window): 'store(crdts: immutable.Seq[T])'
+  // ================================================================================
+  
   def receive: Receive = {
     case jsonString: String =>
       val json = parse(jsonString)
