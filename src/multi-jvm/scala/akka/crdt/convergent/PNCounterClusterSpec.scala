@@ -44,11 +44,11 @@ class PNCounterClusterSpec extends MultiNodeSpec(PNCounterClusterSpecConfig) wit
 
   def initialParticipants = roles.size
 
-  "A ConvergentReplicatedDataTypeStorage" must {
+  "A ConvergentReplicatedDataTypeDatabase" must {
 
     "Make sure that a PNCounter, used by multiple nodes, eventually converge to a consistent value" in {
       val cluster = Cluster(system)
-      val storage = ConvergentReplicatedDataTypeStorage(system)
+      val storage = ConvergentReplicatedDataTypeDatabase(system)
 
       runOn(node1) { cluster join node1 }
       runOn(node2) { cluster join node1 }
@@ -88,6 +88,9 @@ class PNCounterClusterSpec extends MultiNodeSpec(PNCounterClusterSpecConfig) wit
       }
 
       enterBarrier("verified-counter-on-all-nodes")
+      
+      storage.shutdown()
+      enterBarrier("after-shutdown")
     }
   }
 }

@@ -11,3 +11,4 @@ akka-crdt.sublime-workspace
 
 /.worksheet/
 /bin/
+/leveldb/

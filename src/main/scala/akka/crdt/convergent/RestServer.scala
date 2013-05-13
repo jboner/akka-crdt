@@ -27,7 +27,7 @@ object RestServer {
   }
 }
 
-class RestServer(storage: ConvergentReplicatedDataTypeStorage) {
+class RestServer(storage: ConvergentReplicatedDataTypeDatabase) {
 	@volatile var http: Http = _ //FIXME put in AtomicReference or protect by AtomicBoolean 
 	val port = 9000 // FIXME make port configurable
 	
@@ -40,7 +40,7 @@ class RestServer(storage: ConvergentReplicatedDataTypeStorage) {
   def shutdown(): Unit = http.stop()
 }
 
-class GCounterPlan(storage: ConvergentReplicatedDataTypeStorage) extends async.Plan with ServerErrorResponse {
+class GCounterPlan(storage: ConvergentReplicatedDataTypeDatabase) extends async.Plan with ServerErrorResponse {
 
 	def intent = {
 	  case req @ GET(Path("/ping")) =>

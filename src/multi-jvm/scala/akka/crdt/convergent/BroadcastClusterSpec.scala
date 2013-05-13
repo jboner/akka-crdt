@@ -42,11 +42,11 @@ class BroadcastClusterSpec extends MultiNodeSpec(BroadcastClusterSpecConfig) wit
 
   def initialParticipants = roles.size
 
-  "A ConvergentReplicatedDataTypeStorage" must {
+  "A ConvergentReplicatedDataTypeDatabase" must {
 
     "broadcast all CvRDT changes to all cluster nodes" in {
       val cluster = Cluster(system)
-      val storage = ConvergentReplicatedDataTypeStorage(system)
+      val storage = ConvergentReplicatedDataTypeDatabase(system)
 
       runOn(node1) { cluster join node1 }
       runOn(node2) { cluster join node1 }
@@ -93,6 +93,9 @@ class BroadcastClusterSpec extends MultiNodeSpec(BroadcastClusterSpecConfig) wit
         }
       }
       enterBarrier("replicated g-counter from node2")
+      
+      storage.shutdown()
+      enterBarrier("after-shutdown")
     }
   }
 }

@@ -47,11 +47,11 @@ class TwoPhaseSetClusterSpec extends MultiNodeSpec(TwoPhaseSetClusterSpecConfig)
 
   def initialParticipants = roles.size
 
-  "A ConvergentReplicatedDataTypeStorage" must {
+  "A ConvergentReplicatedDataTypeDatabase" must {
 
     "Make sure that a TwoPhaseSet, used by multiple nodes, eventually converge to a consistent value" in {
       val cluster = Cluster(system)
-      val storage = ConvergentReplicatedDataTypeStorage(system)
+      val storage = ConvergentReplicatedDataTypeDatabase(system)
 
       runOn(node1) { cluster join node1 }
       runOn(node2) { cluster join node1 }
@@ -125,6 +125,9 @@ class TwoPhaseSetClusterSpec extends MultiNodeSpec(TwoPhaseSetClusterSpecConfig)
       }
 
       enterBarrier("verified-set-on-all-nodes")
+      
+      storage.shutdown()
+      enterBarrier("after-shutdown")
     }
   }
 }
