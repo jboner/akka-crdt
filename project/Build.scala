@@ -35,19 +35,51 @@ object Versions {
 
 object Dependencies {
   import Versions._
-  lazy val akkaActor   = "com.typesafe.akka" 			 %% "akka-actor"                % AkkaVersion    % "compile"
-  lazy val akkaCluster = "com.typesafe.akka"       %% "akka-cluster-experimental" % AkkaVersion    % "compile"
-  lazy val akkaContrib = "com.typesafe.akka" 			 %% "akka-contrib"              % AkkaVersion    % "compile"
-  lazy val playJson    = "play"              			 %% "play-json"                 % "2.2-SNAPSHOT" % "compile"
-  lazy val unfiltered  = "net.databinder"          %% "unfiltered-netty-server"   % "0.6.8"        % "compile"
-  lazy val dispatch    = "net.databinder.dispatch" %% "dispatch-core"             % "0.10.0"       % "compile"
-  lazy val bytecask    = "com.github.bytecask"     %% "bytecask"                  % "1.0-SNAPSHOT" % "compile"
-
+  lazy val akkaActor     = "com.typesafe.akka" 				 %% "akka-actor"                % AkkaVersion    % "compile"
+  lazy val akkaCluster   = "com.typesafe.akka"  			 %% "akka-cluster-experimental" % AkkaVersion    % "compile"
+  lazy val akkaContrib   = "com.typesafe.akka" 			   %% "akka-contrib"              % AkkaVersion    % "compile"
+  lazy val playJson      = "play"              			   %% "play-json"                 % "2.2-SNAPSHOT" % "compile"
+  lazy val unfiltered    = "net.databinder"            %% "unfiltered-netty-server"   % "0.6.8"        % "compile"
+  lazy val dispatch      = "net.databinder.dispatch"   %% "dispatch-core"             % "0.10.0"       % "compile"
+  lazy val levelDbNative = "org.fusesource.leveldbjni" % "leveldbjni-all" 						% "1.6.1"  			 % "compile"
+  lazy val levelDbJava   = "org.iq80.leveldb"          % "leveldb"        						% "0.5" 				 % "compile"
   // lazy val eventSourced      = "org.eligosource"   %% "eventsourced-core"          % EventSourcedVersion % "compile"
   // lazy val eventSourcedInMem = "org.eligosource"   %% "eventsourced-journal-inmem" % EventSourcedVersion % "compile"
 
   lazy val scalaTest         = "org.scalatest"     %% "scalatest"         % "1.9.1"     % "test"
   lazy val akkaMultiNodeTest = "com.typesafe.akka" %% "akka-remote-tests" % AkkaVersion % "test"
+}
+
+object Nobootcp {
+  import java.io.File._
+
+  def runNobootcpInputTask(configuration: Configuration) = inputTask {
+    (argTask: TaskKey[Seq[String]]) => (argTask, streams, fullClasspath in configuration) map { (at, st, cp) =>
+      val runCp = cp.map(_.data).mkString(pathSeparator)
+      val runOpts = Seq("-classpath", runCp) ++ at
+      val result = Fork.java.fork(None, runOpts, None, Map(), true, StdoutOutput).exitValue()
+      if (result != 0) sys.error("Run failed")
+    }
+  }
+
+  val testNobootcpSettings = test <<= (streams, productDirectories in Test, fullClasspath in Test) map { (st, pd, cp) =>
+    val testCp = cp.map(_.data).mkString(pathSeparator)
+    val testExec = "org.scalatest.tools.Runner"
+    val testPath = pd(0).toString
+    val testOpts = Seq("-classpath", testCp, testExec, "-R", testPath, "-o")
+    val result = Fork.java.fork(None, testOpts, None, Map(), false, LoggedOutput(st.log)).exitValue()
+    if (result != 0) sys.error("Tests failed")
+  }
+
+  val runNobootcp = InputKey[Unit]("run-nobootcp", "Runs main classes without Scala library on the boot classpath")
+
+  val mainRunNobootcpSettings = runNobootcp <<= runNobootcpInputTask(Runtime)
+  val testRunNobootcpSettings = runNobootcp <<= runNobootcpInputTask(Test)
+
+  lazy val settings =
+    mainRunNobootcpSettings ++
+    testRunNobootcpSettings ++
+    testNobootcpSettings
 }
 
 object ExampleBuild extends Build {
@@ -60,7 +92,7 @@ object ExampleBuild extends Build {
     file("."),
     settings = buildSettings ++ multiJvmSettings ++ Seq (
       resolvers            := Seq (playJsonSnapshots, sonatypeSnapshots),
-      libraryDependencies ++= Seq (akkaActor, akkaCluster, akkaContrib, playJson, unfiltered, dispatch, bytecask),
+      libraryDependencies ++= Seq (akkaActor, akkaCluster, akkaContrib, playJson, unfiltered, dispatch, levelDbNative, levelDbJava),
       libraryDependencies ++= Seq (scalaTest, akkaMultiNodeTest)
     )
   ) configs(MultiJvm)
@@ -70,7 +102,7 @@ object ExampleBuild extends Build {
     parallelExecution in Test := false,                                          // disable parallel tests
     executeTests in Test <<=                                                     // make sure that MultiJvm tests are executed by the default test target
       ((executeTests in Test), (executeTests in MultiJvm)) map {
-        case ((_, testResults), (_, multiJvmResults))  =>
+        case ((_, testResults), (_, multiJvmResults)) =>
           val results = testResults ++ multiJvmResults
           (Tests.overall(results.values), results)
     }
