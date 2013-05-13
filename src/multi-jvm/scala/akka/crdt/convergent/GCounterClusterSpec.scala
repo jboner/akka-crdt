@@ -86,6 +86,9 @@ class GCounterClusterSpec extends MultiNodeSpec(GCounterClusterSpecConfig) with 
       }
 
       enterBarrier("verified-counter-on-all-nodes")
+      
+      storage.shutdown()
+      enterBarrier("after-shutdown")
     }
   }
 }

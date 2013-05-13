@@ -125,6 +125,9 @@ class TwoPhaseSetClusterSpec extends MultiNodeSpec(TwoPhaseSetClusterSpecConfig)
       }
 
       enterBarrier("verified-set-on-all-nodes")
+      
+      storage.shutdown()
+      enterBarrier("after-shutdown")
     }
   }
 }

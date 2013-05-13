@@ -88,6 +88,9 @@ class PNCounterClusterSpec extends MultiNodeSpec(PNCounterClusterSpecConfig) wit
       }
 
       enterBarrier("verified-counter-on-all-nodes")
+      
+      storage.shutdown()
+      enterBarrier("after-shutdown")
     }
   }
 }

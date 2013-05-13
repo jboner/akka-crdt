@@ -93,6 +93,9 @@ class BroadcastClusterSpec extends MultiNodeSpec(BroadcastClusterSpecConfig) wit
         }
       }
       enterBarrier("replicated g-counter from node2")
+      
+      storage.shutdown()
+      enterBarrier("after-shutdown")
     }
   }
 }

@@ -107,6 +107,9 @@ class GSetClusterSpec extends MultiNodeSpec(GSetClusterSpecConfig) with STMultiN
       }
 
       enterBarrier("verified-set-on-all-nodes")
+      
+      storage.shutdown()
+      enterBarrier("after-shutdown")
     }
   }
 }
