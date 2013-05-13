@@ -9,7 +9,7 @@ import scala.reflect.ClassTag
 import scala.collection.immutable
 import play.api.libs.json.Json.parse
 import akka.event.LoggingAdapter
-import org.iq80.leveldb.{ ReadOptions, WriteOptions, Options, CompressionType, WriteBatch, DB, DBFactory }
+import org.iq80.leveldb.{ Logger, ReadOptions, WriteOptions, Options, CompressionType, WriteBatch, DB, DBFactory }
 import org.iq80.leveldb.impl.Iq80DBFactory
 import org.fusesource.leveldbjni.JniDBFactory
 import org.fusesource.leveldbjni.JniDBFactory.{ asString, bytes }
@@ -18,7 +18,7 @@ import java.io.File
 class LevelDbStorage(
   val nodename: String,
   val settings: ConvergentReplicatedDataTypeSettings,
-  log: LoggingAdapter) extends Storage {
+  log: LoggingAdapter) extends Storage { storage ⇒
 
   // FIXME use ConvergentReplicatedDataTypeSettings
   private val useFsync: Boolean = false
@@ -31,8 +31,14 @@ class LevelDbStorage(
   private val factory: DBFactory = if (useNative) JniDBFactory.factory else Iq80DBFactory.factory
 
   private val leveldbOptions: Options = {
-    val options = new Options().createIfMissing(true)
-    if (useNative) options else options.compressionType(CompressionType.NONE)
+    val options = new Options()
+      .createIfMissing(true)
+      .cacheSize(100 * 1048576) // 100MB cache - FIXME make configurable
+      .logger(new Logger() {
+        def log(message: String) = storage.log.debug(message)
+      })
+    if (useNative) options.compressionType(CompressionType.SNAPPY)
+    else options.compressionType(CompressionType.NONE)
   }
 
   private def createDb(filename: String): DB = factory.open(new File(filename), leveldbOptions)
@@ -99,29 +105,28 @@ class LevelDbStorage(
       factory.destroy(new File(filename), new Options)
   }
 }
-
 /*
 TODO: now we serialize the CRDT -> JSON String -> binary, should we serialize CRDT -> Play JSON -> binary instead?
-
+ 
 TODO: Stuff to look into (from LevelDBJNI docs):
-
+ 
 Configuring the Cache
-
+ 
     Options options = new Options();
     options.cacheSize(100 * 1048576); // 100MB cache
     DB db = factory.open(new File("example"), options);
     Getting approximate sizes.
-
+ 
     long[] sizes = db.getApproximateSizes(new Range(bytes("a"), bytes("k")), new Range(bytes("k"), bytes("z")));
     System.out.println("Size: "+sizes[0]+", "+sizes[1]);
-
+ 
 Getting database status.
-
+ 
     String stats = db.getProperty("leveldb.stats");
     System.out.println(stats);
-
+ 
 Getting informational log messages.
-
+ 
     Logger logger = new Logger() {
       public void log(String message) {
         System.out.println(message);

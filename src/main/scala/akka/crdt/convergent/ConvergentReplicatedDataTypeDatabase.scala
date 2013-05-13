@@ -103,6 +103,10 @@ class Publisher extends Actor with ActorLogging {
     log.info("Starting CvRDT change publisher")
   }
 
+  // ================================================================================
+  // FIXME make use of batching (add a time window)
+  // ================================================================================
+
   def receive = {
     case json: JsValue ⇒
       log.debug("Broadcasting changes {}", json)
