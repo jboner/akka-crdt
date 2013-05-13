@@ -83,11 +83,13 @@ class LevelDbStorage(
       else if (classOf[TwoPhaseSet].isAssignableFrom(clazz)) twoPhaseSets
       else throw new ClassCastException(s"Could store CvRDT with type [$clazz]")
 
-    writeBatch(db) { batch ⇒
+    val batch = db.createWriteBatch()
+    try {
+      db.write(batch, levelDbWriteOptions)
       crdts foreach { crdt ⇒
         batch put (bytes(crdt.id), bytes(crdt.toString))
       }
-    }
+    } finally batch.close()
   }
 
   override def close(): Unit = databases foreach { case (_, db) ⇒ db.close() }
@@ -95,16 +97,6 @@ class LevelDbStorage(
   override def destroy(): Unit = databases foreach {
     case (filename, _) ⇒
       factory.destroy(new File(filename), new Options)
-  }
-
-  private def writeBatch(db: DB)(p: WriteBatch ⇒ Unit): Unit = {
-    val batch = db.createWriteBatch()
-    try {
-      p(batch)
-      db.write(batch, levelDbWriteOptions)
-    } finally {
-      batch.close()
-    }
   }
 }
 
