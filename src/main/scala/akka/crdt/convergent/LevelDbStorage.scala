@@ -20,10 +20,13 @@ class LevelDbStorage(
   val settings: ConvergentReplicatedDataTypeSettings,
   log: LoggingAdapter) extends Storage { storage ⇒
 
-  // FIXME use ConvergentReplicatedDataTypeSettings
-  private val useFsync: Boolean = false
-  private val verifyChecksums: Boolean = false
-  private val useNative: Boolean = false
+  final val path = settings.LevelDbStoragePath
+  final val filenamePrefix = s"$path/$nodename"
+
+  final val useFsync: Boolean = settings.LevelDbUseFsync
+  final val verifyChecksums: Boolean = settings.LevelDbVerifyChecksums
+  final val useNative: Boolean = settings.LevelDbUseNative
+  final val cacheSize: Int = settings.LevelDbCacheSize
 
   private val levelDbReadOptions: ReadOptions = new ReadOptions().verifyChecksums(verifyChecksums)
   private val levelDbWriteOptions: WriteOptions = new WriteOptions().sync(useFsync)
@@ -33,7 +36,7 @@ class LevelDbStorage(
   private val leveldbOptions: Options = {
     val options = new Options()
       .createIfMissing(true)
-      .cacheSize(100 * 1048576) // 100MB cache - FIXME make configurable
+      .cacheSize(cacheSize)
       .logger(new Logger() {
         def log(message: String) = storage.log.debug(message)
       })
@@ -43,10 +46,10 @@ class LevelDbStorage(
 
   private def createDb(filename: String): DB = factory.open(new File(filename), leveldbOptions)
 
-  private val gCountersFilename = s"${nodename}_g_counters"
-  private val pnCountersFilename = s"${nodename}_pn_counters"
-  private val gSetsFilename = s"${nodename}_g_sets"
-  private val twoPhaseSetsFilename = s"${nodename}_2p_sets"
+  private val gCountersFilename = s"${filenamePrefix}_g_counters"
+  private val pnCountersFilename = s"${filenamePrefix}_pn_counters"
+  private val gSetsFilename = s"${filenamePrefix}_g_sets"
+  private val twoPhaseSetsFilename = s"${filenamePrefix}_2p_sets"
 
   private val gCounters: DB = createDb(gCountersFilename)
   private val pnCounters: DB = createDb(pnCountersFilename)
@@ -106,16 +109,9 @@ class LevelDbStorage(
   }
 }
 /*
-TODO: now we serialize the CRDT -> JSON String -> binary, should we serialize CRDT -> Play JSON -> binary instead?
- 
 TODO: Stuff to look into (from LevelDBJNI docs):
  
-Configuring the Cache
- 
-    Options options = new Options();
-    options.cacheSize(100 * 1048576); // 100MB cache
-    DB db = factory.open(new File("example"), options);
-    Getting approximate sizes.
+Getting approximate sizes.
  
     long[] sizes = db.getApproximateSizes(new Range(bytes("a"), bytes("k")), new Range(bytes("k"), bytes("z")));
     System.out.println("Size: "+sizes[0]+", "+sizes[1]);
@@ -125,22 +121,7 @@ Getting database status.
     String stats = db.getProperty("leveldb.stats");
     System.out.println(stats);
  
-Getting informational log messages.
- 
-    Logger logger = new Logger() {
-      public void log(String message) {
-        System.out.println(message);
-      }
-    };
-    Options options = new Options();
-    options.logger(logger);
-    DB db = factory.open(new File("example"), options);
-
-Destroying a database.
-
-    Options options = new Options();
-    factory.destroy(new File("example"), options);
-    Repairing a database.
+Repairing a database.
 
     Options options = new Options();
     factory.repair(new File("example"), options);

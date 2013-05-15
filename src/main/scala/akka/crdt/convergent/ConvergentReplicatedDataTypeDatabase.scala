@@ -5,7 +5,7 @@
 package akka.crdt.convergent
 
 import akka.actor._
-import akka.event.{ Logging, LogSource }
+import akka.event.{ Logging, LogSource, LoggingAdapter }
 import akka.contrib.pattern.DistributedPubSubExtension
 import akka.contrib.pattern.DistributedPubSubMediator
 import akka.contrib.pattern.DistributedPubSubMediator._
@@ -14,6 +14,7 @@ import play.api.libs.json.Json.{ toJson, parse, stringify }
 import play.api.libs.json.JsValue
 import scala.util.Try
 import scala.reflect.ClassTag
+import java.util.UUID
 
 object ConvergentReplicatedDataTypeDatabase
   extends ExtensionId[ConvergentReplicatedDataTypeDatabase]
@@ -33,23 +34,32 @@ object ConvergentReplicatedDataTypeDatabase
 }
 
 class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Extension {
-  private implicit val system = sys
+  implicit val system = sys
 
-  private val log = Logging(sys, ConvergentReplicatedDataTypeDatabase.this)
+  val log = Logging(sys, ConvergentReplicatedDataTypeDatabase.this)
 
-  private val nodename = Cluster(sys).selfAddress.hostPort.replace('@', '_').replace(':', '_')
+  val nodename = Cluster(sys).selfAddress.hostPort.replace('@', '_').replace(':', '_')
 
-  private val settings = new ConvergentReplicatedDataTypeSettings(system.settings.config, system.name)
+  val settings = new ConvergentReplicatedDataTypeSettings(system.settings.config, system.name)
 
-  // FIXME make configurable from 'settings'
-  private val storage = new LevelDbStorage(s"./leveldb/$nodename", settings, log)
-  //private val storage = new InMemoryStorage(log) // FIXME make configurable from 'settings'
+  private val storage: Storage =
+    system.dynamicAccess.createInstanceFor[Storage](
+      settings.StorageClass, List(
+        (classOf[String], nodename),
+        (classOf[ConvergentReplicatedDataTypeSettings], settings),
+        (classOf[LoggingAdapter], log))).get // get the instance or throw the error
 
   private val publisher = system.actorOf(Props[Publisher], name = "crdt:publisher")
 
   private val subscriber = system.actorOf(Props(new Subscriber(storage)), name = "crdt:subscriber")
 
-  def getOrCreate[T <: ConvergentReplicatedDataType: ClassTag](id: String): Try[T] = Try {
+  private val restServer = if (settings.RestServerRun) {
+    val rs = new RestServer(this)
+    rs.start()
+    Some(rs)
+  } else None
+
+  def getOrCreate[T <: ConvergentReplicatedDataType: ClassTag](id: String = UUID.randomUUID.toString): Try[T] = Try {
     val clazz = implicitly[ClassTag[T]].runtimeClass
     if (classOf[GCounter].isAssignableFrom(clazz))
       (storage.findById[GCounter](id) getOrElse update(GCounter(id))).asInstanceOf[T]
@@ -84,6 +94,7 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
 
   def shutdown(): Unit = {
     log.info("Shutting down ConvergentReplicatedDataTypeDatabase")
+    restServer foreach { _.shutdown() }
     system.stop(subscriber)
     system.stop(publisher)
     storage.destroy()
