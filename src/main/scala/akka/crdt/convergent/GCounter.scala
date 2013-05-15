@@ -32,7 +32,12 @@ case class GCounter(
   }
 
   def merge(that: GCounter): GCounter = {
-    that.state.foldLeft(this) { (acc, record) ⇒ acc + (record._1, record._2) }
+    that.state.foldLeft(GCounter(id = id)) { (newCounter, thatRecord) ⇒
+      val (thatKey, thatValue) = thatRecord
+      val thisValue = state(thatKey)
+      val newValue = Math.max(thisValue, thatValue)
+      newCounter + (thatKey, newValue)
+    }
   }
 
   override def toString: String = Json.stringify(GCounter.format.writes(this))
