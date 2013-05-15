@@ -26,11 +26,17 @@ case class PNCounter private (
 
   def value: Int = increments.value - decrements.value
 
+  /**
+   * Increment the PNCounter with the delta specified. If the value is negative then it will decrement instead of increment.
+   */
   def +(node: String, delta: Int = 1): PNCounter = {
     if (delta < 0) this - (node, delta)
     else new PNCounter(id, increments + (node, delta), decrements)
   }
 
+  /**
+   * Decrements the PNCounter with the delta specified. Agnostic to sign (does Math.abs(delta)).
+   */
   def -(node: String, delta: Int = 1): PNCounter =
     new PNCounter(id, increments, decrements + (node, Math.abs(delta)))
 

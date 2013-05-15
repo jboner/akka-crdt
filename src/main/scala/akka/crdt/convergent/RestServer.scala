@@ -5,149 +5,207 @@
 package akka.crdt.convergent
 
 import akka.actor._
-import akka.pattern.ask
-import akka.util.Timeout
-
-import scala.concurrent.duration._
-import scala.concurrent.Future
-
+import scala.concurrent.{ Future, future, ExecutionContext }
+import scala.util.{ Success, Failure }
+import scala.util.control.NonFatal
+import play.api.libs.json.Json.{ toJson, parse, stringify }
+import play.api.libs.json.JsValue
 import unfiltered.Async
 import unfiltered.request._
 import unfiltered.response._
 import unfiltered.netty._
 import unfiltered.util._
+import QParams._
+import com.typesafe.config.ConfigFactory
 
+/**
+ * Used to run as a main server in demos etc. Starts up on random port on 127.0.0.1.
+ * 
+ * POST: 
+ * <pre>
+ * 		curl -i -H "Accept: application/json" -X POST -d "node=darkstar" -d "delta=1" http://127.0.0.1:9000/g-counter/jonas
+ * </pre>
+ * 
+ * GET:
+ * <pre>
+ * 		curl -i -H "Accept: application/json" http://127.0.0.1:9000/g-counter/jonas
+ * </pre>
+ */
 object RestServer {
   def main(args: Array[String]): Unit = {
-    val server = new RestServer(null)
-    server.start()
-    println(s"Server listening on port: $server.port. Press any key to exit...")
+    val config = ConfigFactory.parseString("""
+			akka {
+				actor.provider = akka.cluster.ClusterActorRefProvider
+				loglevel       = INFO
+				loggers        = ["akka.testkit.TestEventListener"]
+				remote {
+					enabled-transports = ["akka.remote.netty.tcp"]
+					netty.tcp {
+	      		hostname = "127.0.0.1"
+	      		port     = 0
+					}
+					log-remote-lifecycle-events = off
+				}
+				crdt.rest-server {
+				  run      = on
+	  			hostname = "0.0.0.0"
+				  port     = 9000
+				}
+			}
+			""")
+    val system = ActorSystem("CvRDTDatabase", config)
+    val storage = ConvergentReplicatedDataTypeDatabase(system)
+    println(s"""
+		======================================================================================
+		★ ★ ★  CvRDT Database Server listening on port: ${config.getInt("akka.crdt.rest-server.port")}. Press any key to exit...  ★ ★ ★
+		======================================================================================""")
     System.in.read()
-    server.shutdown()
+    storage.shutdown()
+    system.shutdown()
   }
 }
 
 class RestServer(storage: ConvergentReplicatedDataTypeDatabase) {
-  @volatile var http: Http = _ //FIXME put in AtomicReference or protect by AtomicBoolean 
-  val port = 9000 // FIXME make port configurable
+  @volatile private var http: Option[Http] = None
+
+  final val hostname = storage.settings.RestServerHostname
+  final val port = storage.settings.RestServerPort
 
   def start(): Unit = {
-    http = Http(port)
-      .handler(new GCounterPlan(storage))
-      .start()
+    http = Some(Http(port, hostname).handler(new CvRDTPlan(storage)).start())
   }
 
-  def shutdown(): Unit = http.stop()
+  def shutdown(): Unit = http foreach (_.stop())
 }
 
-class GCounterPlan(storage: ConvergentReplicatedDataTypeDatabase) extends async.Plan with ServerErrorResponse {
-
-  def intent = {
-    case req @ GET(Path("/ping")) ⇒
-      req.respond(textResponse("Pong"))
-
-    case req @ GET(Path(Seg("cvrdt" :: "g-counter" :: id :: Nil)))                   ⇒
-    //			    async {
-    //			      (accountActor ask Status(accountId)).mapTo[Int].map { r =>
-    //			        if (r > 0) textResponse("Account total: " + r)
-    //			        else BadRequest ~> textResponse("Unknown account: " + accountId)
-    //			      }
-    //			    }
-
-    case req @ POST(Path(Seg("cvrdt" :: "g-counter" :: id :: Nil))) & Params(params) ⇒
-    //			    validate(params) { (accountId, amount) =>
-    //			      async {
-    //			        (accountActor ask Deposit(accountId, amount)).mapTo[Int].map { r =>
-    //			          textResponse("Updated account total: " + r)
-    //			        }
-    //			      }
-    //			    }
-  }
-
-  def textResponse(content: String) = PlainTextContent ~> ResponseString(content + "\r\n")
-
-  private def async[A](body: ⇒ Future[ResponseFunction[A]])(implicit responder: Async.Responder[A]): Unit = {
-    //    body onComplete {
-    //      case Right(rf) => responder.respond(rf)
-    //      case _ =>
-    //        // You should do something about the error here, but this is just a simple example ;)
-    //        responder.respond(RequestTimeout)
-    //    }
-  }
-
-  private def validate[A](params: Params.Map)(success: (String, Int) ⇒ Unit)(implicit responder: Async.Responder[A]) {
-    import QParams._
-    val expected = for {
-      accountId ← lookup("accountId") is
-        required("accountId is missing") is
-        trimmed is
-        nonempty("accountId is empty")
-      amount ← lookup("amount") is
-        required("amount is missing") is
-        int(s ⇒ "'%s' is not an integer".format(s)) is
-        pred(a ⇒ a >= 1, _ ⇒ "amount must be >= 1")
-    } yield accountId.get -> amount.get
-
-    expected(params) match {
-      case Right((accountId, amount)) ⇒ success(accountId, amount)
-      case Left(log) ⇒
-        val err = log.map(f ⇒ "%s %s".format(f.name, f.error)).mkString("", ", ", "\r\n")
-        responder.respond(BadRequest ~> PlainTextContent ~> ResponseString(err))
+trait AsyncPlan {
+  val END = "\r\n"
+  def async[A](body: ⇒ Future[ResponseFunction[A]])(implicit responder: Async.Responder[A], executionContext: ExecutionContext): Unit = {
+    try {
+      body onComplete {
+        case Success(result) ⇒ responder.respond(result)
+        case Failure(error)  ⇒ responder.respond(errorResponse(error))
+      }
+    } catch {
+      case NonFatal(e) ⇒ responder.respond(errorResponse(e))
     }
   }
 
-  def view(time: String) = {
-    Html(
-      <html><body>
-              The current time is:{ time }
-            </body></html>)
-  }
+  def textResponse[A](content: String): ResponseFunction[A] = PlainTextContent ~> ResponseString(content + END)
+
+  def jsonResponse[A](json: String): ResponseFunction[A] = JsonContent ~> ResponseString(json + END)
+
+  def errorResponse[A](error: String): ResponseFunction[A] = BadRequest ~> PlainTextContent ~> ResponseString(error + END)
+
+  def errorResponse[A](error: Throwable): ResponseFunction[A] = errorResponse(error.getMessage)
 }
 
-//object ConvergentReplicatedDataTypePlan 
-//	extends cycle.Plan
-//  with cycle.SynchronousExecution 
-//  with ServerErrorResponse {
-//  import QParams._
-//  
-//  def intent = {
-//    case GET(Path("/")) =>
-//			println("GET /")
-//      view(Map.empty)(<p> What say you? </p>)
-//
-//    case POST(Path("/") & Params(params)) =>
-//      println("POST /")
-//      val vw = view(params)_
-//      val expected = for { 
-//        int <- lookup("int") is
-//          int { s => "'%s' is not an integer".format(s) } is
-//          required("missing int")
-//        word <- lookup("palindrome") is
-//          trimmed is 
-//          nonempty("Palindrome is empty") is
-//          pred(palindrome, { s =>
-//            "%s is not a palindrome".format(s)
-//          }) is
-//          required("missing palindrome")
-//      } yield vw(<p>Yup. { int.get } is an integer and { word.get } is a palindrome. </p>)
-//      expected(params) orFail { fails =>
-//        vw(<ul> { fails.map { f => <li>{f.error} </li> } } </ul>)
-//      }
-//  }
-//
-//  def palindrome(s: String) = s.toLowerCase.reverse == s.toLowerCase
-//  
-//  def view(params: Map[String, Seq[String]])(body: scala.xml.NodeSeq) = {
-//    def p(k: String) = params.get(k).flatMap { _.headOption } getOrElse("")
-//    Html(
-//     <html><body>
-//       { body }
-//       <form method="POST">
-//         Integer <input name="int" value={ p("int") } ></input>
-//         Palindrome <input name="palindrome" value={ p("palindrome") } />
-//         <input type="submit" />
-//       </form>
-//     </body></html>
-//   )
-//  }
-//}
+class CvRDTPlan(storage: ConvergentReplicatedDataTypeDatabase)
+  extends async.Plan with ServerErrorResponse with AsyncPlan {
+  import storage.system.dispatcher
+
+  def intent = {
+    case req ⇒
+      implicit val responder = req
+      req match {
+        // =================================================================
+        // ping
+        // =================================================================
+        case GET(Path("/ping")) ⇒
+          req.respond(textResponse("pong"))
+
+        // =================================================================
+        // g-counter
+        // =================================================================
+        case GET(Path(Seg("g-counter" :: Nil))) ⇒
+          async {
+            future { storage.getOrCreate[GCounter]().get } map { counter ⇒
+              jsonResponse(stringify(toJson(counter)))
+            }
+          }
+
+        case GET(Path(Seg("g-counter" :: id :: Nil))) ⇒
+          async {
+            future { storage.getOrCreate[GCounter](id).get } map { counter ⇒
+              jsonResponse(stringify(toJson(counter)))
+            }
+          }
+
+        case POST(Path(Seg("g-counter" :: id :: Nil))) & Params(params) ⇒
+          if (params.isEmpty) { // POST with full CRDT body
+            async {
+              val json = new String(Body.bytes(req)).trim()
+              future { storage.update(parse(json).as[GCounter]) } map { _ ⇒ jsonResponse(json) }
+            }
+          } else { // POST with params node/delta
+            val validateParams = for {
+              node ← lookup("node") is
+                required("'node' is missing") is
+                trimmed is
+                nonempty("'node' is empty")
+              delta ← lookup("delta") is
+                required("'delta' is missing") is
+                int(s ⇒ s"$s' is not an integer") is
+                pred(i ⇒ i >= 1, _ ⇒ "delta must be >= 1")
+            } yield (node.get, delta.get)
+
+            validateParams(params) match {
+              case Right((node, delta)) ⇒
+                async {
+                  future { storage.update(storage.getOrCreate[GCounter](id).get + (node, delta)) } map { counter ⇒
+                    jsonResponse(stringify(toJson(counter)))
+                  }
+                }
+              case Left(error) ⇒
+                responder.respond(errorResponse(error.map(e ⇒ s"Parameter ${e.error}").mkString("", ", ", END)))
+            }
+          }
+
+        // =================================================================
+        // pn-counter
+        // =================================================================
+        case GET(Path(Seg("pn-counter" :: Nil))) ⇒
+          async {
+            future { storage.getOrCreate[PNCounter]().get } map { counter ⇒
+              jsonResponse(stringify(toJson(counter)))
+            }
+          }
+
+        case GET(Path(Seg("pn-counter" :: id :: Nil))) ⇒
+          async {
+            future { storage.getOrCreate[PNCounter](id).get } map { counter ⇒
+              jsonResponse(stringify(toJson(counter)))
+            }
+          }
+
+        case POST(Path(Seg("pn-counter" :: id :: Nil))) & Params(params) ⇒
+          if (params.isEmpty) { // POST with full CRDT body
+            async {
+              val json = new String(Body.bytes(req)).trim()
+              future { storage.update(parse(json).as[PNCounter]) } map { _ ⇒ jsonResponse(json) }
+            }
+          } else { // POST with params node/delta
+            val validateParams = for {
+              node ← lookup("node") is
+                required("'node' is missing") is
+                trimmed is
+                nonempty("'node' is empty")
+              delta ← lookup("delta") is
+                required("'delta' is missing") is
+                int(s ⇒ s"$s' is not an integer") // can be negative
+            } yield (node.get, delta.get)
+
+            validateParams(params) match {
+              case Right((node, delta)) ⇒
+                async {
+                  future { storage.update(storage.getOrCreate[PNCounter](id).get + (node, delta)) } map { counter ⇒
+                    jsonResponse(stringify(toJson(counter)))
+                  }
+                }
+              case Left(error) ⇒
+                responder.respond(errorResponse(error map { e ⇒ s"$e.name $e.error" } mkString ("", ", ", END)))
+            }
+          }
+      }
+  }
+}
