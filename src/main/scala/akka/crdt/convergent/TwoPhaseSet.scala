@@ -11,6 +11,26 @@ import play.api.libs.json._
 import java.util.UUID
 
 /**
+ * Implements a snapshot view of the TwoPhaseSet.
+ */
+case class TwoPhaseSetView(id: String, value: Set[JsValue]) extends ConvergentReplicatedDataTypeCounterView {
+  def toJson: JsValue = TwoPhaseSetView.format.writes(this)
+}
+
+object TwoPhaseSetView {
+  implicit object format extends Format[TwoPhaseSetView] {
+    def reads(json: JsValue): JsResult[TwoPhaseSetView] = JsSuccess(TwoPhaseSetView(
+      (json \ "id").as[String],
+      (json \ "value").as[Set[JsValue]]))
+
+    def writes(set: TwoPhaseSetView): JsValue = JsObject(Seq(
+      "type" -> JsString("set"),
+      "id" -> JsString(set.id),
+      "value" -> Json.toJson(set.value)))
+  }
+}
+
+/**
  * Implements a ConvergentReplicatedDataType 'Two Phase Set' also called a '2P-Set'.
  *
  * 2-phase sets consist of two G-Sets: one for adding and one for removing.
@@ -40,7 +60,9 @@ case class TwoPhaseSet(
 
   def value: immutable.Set[JsValue] = adds.value -- removes.value
 
-  override def toString: String = Json.stringify(TwoPhaseSet.format.writes(this))
+  def view: ConvergentReplicatedDataTypeCounterView = TwoPhaseSetView(id, value)
+
+  override def toJson: JsValue = TwoPhaseSet.format.writes(this)
 }
 
 object TwoPhaseSet {

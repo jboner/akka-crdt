@@ -9,6 +9,26 @@ import play.api.libs.json._
 import java.util.UUID
 
 /**
+ * Implements a snapshot view of the PNCounter.
+ */
+case class PNCounterView(id: String, value: Int) extends ConvergentReplicatedDataTypeCounterView {
+  def toJson: JsValue = PNCounterView.format.writes(this)
+}
+
+object PNCounterView {
+  implicit object format extends Format[PNCounterView] {
+    def reads(json: JsValue): JsResult[PNCounterView] = JsSuccess(PNCounterView(
+      (json \ "id").as[String],
+      (json \ "value").as[Int]))
+
+    def writes(counter: PNCounterView): JsValue = JsObject(Seq(
+      "type" -> JsString("counter"),
+      "id" -> JsString(counter.id),
+      "value" -> Json.toJson(counter.value)))
+  }
+}
+
+/**
  * Implements a ConvergentReplicatedDataType 'Increment/Decrement Counter' also called a 'PN-Counter'.
  *
  * PN-Counters allow the counter to be incremented by tracking the
@@ -43,7 +63,9 @@ case class PNCounter private (
   def merge(that: PNCounter): PNCounter =
     new PNCounter(id, that.increments.merge(this.increments), that.decrements.merge(this.decrements))
 
-  override def toString: String = Json.stringify(PNCounter.format.writes(this))
+  def view: ConvergentReplicatedDataTypeCounterView = PNCounterView(id, value)
+
+  override def toJson: JsValue = PNCounter.format.writes(this)
 }
 
 object PNCounter {

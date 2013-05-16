@@ -127,15 +127,21 @@ class PNCounterSpec extends WordSpec with MustMatchers {
 
       // merge both ways
       val merged1 = c16 merge c26
-      merged1.value must be(6)
+      merged1.increments.value must be(9)
+      merged1.decrements.value must be(5)
+      merged1.value must be(4)
+
       val merged2 = c26 merge c16
-      merged2.value must be(6)
+      merged2.increments.value must be(9)
+      merged2.decrements.value must be(5)
+      merged2.value must be(4)
     }
 
     "be able to serialize itself to JSON" in {
       val c1 = PNCounter(id = "users")
 
-      stringify(toJson(c1)) must be("""{"type":"pn-counter","id":"users","increments":{"type":"g-counter","id":"users/inc","state":{}},"decrements":{"type":"g-counter","id":"users/dec","state":{}}}""")
+      stringify(c1.toJson) must be("""{"type":"pn-counter","id":"users","increments":{"type":"g-counter","id":"users/inc","state":{}},"decrements":{"type":"g-counter","id":"users/dec","state":{}}}""")
+      c1.toString must be("""{"type":"pn-counter","id":"users","increments":{"type":"g-counter","id":"users/inc","state":{}},"decrements":{"type":"g-counter","id":"users/dec","state":{}}}""")
 
       val c2 = c1 + (node1, 3)
       val c3 = c2 - (node1, 2)
@@ -144,7 +150,7 @@ class PNCounterSpec extends WordSpec with MustMatchers {
       val c5 = c4 - (node2, 2)
       val c6 = c5 + node2
 
-      stringify(toJson(c6)) must be("""{"type":"pn-counter","id":"users","increments":{"type":"g-counter","id":"users/inc","state":{"node1":3,"node2":6}},"decrements":{"type":"g-counter","id":"users/dec","state":{"node1":2,"node2":2}}}""")
+      c6.toString must be("""{"type":"pn-counter","id":"users","increments":{"type":"g-counter","id":"users/inc","state":{"node1":3,"node2":6}},"decrements":{"type":"g-counter","id":"users/dec","state":{"node1":2,"node2":2}}}""")
     }
 
     "be able to serialize itself from JSON" in {
@@ -153,6 +159,27 @@ class PNCounterSpec extends WordSpec with MustMatchers {
 
       c1.increments.value must be(9)
       c1.decrements.value must be(4)
+    }
+
+    "be able to serialize its view to JSON" in {
+      val c1 = PNCounter(id = "users")
+
+      val c2 = c1 + (node1, 3)
+      val c3 = c2 - (node1, 2)
+
+      val c4 = c3 + (node2, 5)
+      val c5 = c4 - (node2, 2)
+      val c6 = c5 + node2
+
+      c6.view.toString must be("""{"type":"counter","id":"users","value":5}""")
+    }
+
+    "be able to serialize its view from JSON" in {
+      val json = parse("""{"type":"counter","id":"users","value":5}""")
+      val c1 = json.as[PNCounterView]
+
+      c1.id must be("users")
+      c1.value must be(5)
     }
   }
 }

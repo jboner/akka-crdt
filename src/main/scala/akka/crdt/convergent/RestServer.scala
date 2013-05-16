@@ -20,12 +20,12 @@ import com.typesafe.config.ConfigFactory
 
 /**
  * Used to run as a main server in demos etc. Starts up on random port on 127.0.0.1.
- * 
- * POST: 
+ *
+ * POST:
  * <pre>
  * 		curl -i -H "Accept: application/json" -X POST -d "node=darkstar" -d "delta=1" http://127.0.0.1:9000/g-counter/jonas
  * </pre>
- * 
+ *
  * GET:
  * <pre>
  * 		curl -i -H "Accept: application/json" http://127.0.0.1:9000/g-counter/jonas

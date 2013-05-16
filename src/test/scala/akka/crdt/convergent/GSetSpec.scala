@@ -105,7 +105,8 @@ class GSetSpec extends WordSpec with MustMatchers {
     "be able to serialize itself to JSON" in {
       val c1 = GSet(id = "users")
 
-      stringify(toJson(c1)) must be("""{"type":"g-set","id":"users","state":[]}""")
+      stringify(c1.toJson) must be("""{"type":"g-set","id":"users","state":[]}""")
+      c1.toString must be("""{"type":"g-set","id":"users","state":[]}""")
 
       val c2 = c1 + user1
       val c3 = c2 + user2
@@ -113,7 +114,7 @@ class GSetSpec extends WordSpec with MustMatchers {
       val c4 = c3 + user4
       val c5 = c4 + user3
 
-      stringify(toJson(c5)) must be("""{"type":"g-set","id":"users","state":[{"username":"john","password":"coltrane"},{"username":"sonny","password":"rollins"},{"username":"charles","password":"mingus"},{"username":"charlie","password":"parker"}]}""")
+      c5.toString must be("""{"type":"g-set","id":"users","state":[{"username":"john","password":"coltrane"},{"username":"sonny","password":"rollins"},{"username":"charles","password":"mingus"},{"username":"charlie","password":"parker"}]}""")
     }
 
     "be able to serialize itself from JSON" in {
@@ -124,6 +125,26 @@ class GSetSpec extends WordSpec with MustMatchers {
       c1.value must contain(user2)
       c1.value must contain(user3)
       c1.value must contain(user4)
+    }
+
+    "be able to serialize its view to JSON" in {
+      val c1 = GSet(id = "users")
+
+      val c2 = c1 + user1
+      val c3 = c2 + user2
+
+      val c4 = c3 + user4
+      val c5 = c4 + user3
+
+      c5.view.toString must be("""{"type":"set","id":"users","value":[{"username":"john","password":"coltrane"},{"username":"sonny","password":"rollins"},{"username":"charles","password":"mingus"},{"username":"charlie","password":"parker"}]}""")
+    }
+
+    "be able to serialize its view from JSON" in {
+      val json = parse("""{"type":"set","id":"users","value":[{"username":"john","password":"coltrane"},{"username":"sonny","password":"rollins"},{"username":"charles","password":"mingus"},{"username":"charlie","password":"parker"}]}""")
+      val c1 = json.as[GSetView]
+
+      c1.id must be("users")
+      c1.value.size must be(4)
     }
   }
 }

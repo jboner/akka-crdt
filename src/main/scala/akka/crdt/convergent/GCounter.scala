@@ -9,6 +9,26 @@ import play.api.libs.json._
 import java.util.UUID
 
 /**
+ * Implements a snapshot view of the GCounter.
+ */
+case class GCounterView(id: String, value: Int) extends ConvergentReplicatedDataTypeCounterView {
+  def toJson: JsValue = GCounterView.format.writes(this)
+}
+
+object GCounterView {
+  implicit object format extends Format[GCounterView] {
+    def reads(json: JsValue): JsResult[GCounterView] = JsSuccess(GCounterView(
+      (json \ "id").as[String],
+      (json \ "value").as[Int]))
+
+    def writes(counter: GCounterView): JsValue = JsObject(Seq(
+      "type" -> JsString("counter"),
+      "id" -> JsString(counter.id),
+      "value" -> Json.toJson(counter.value)))
+  }
+}
+
+/**
  * Implements a ConvergentReplicatedDataType 'Growing Counter' also called a 'G-Counter'.
  *
  * A G-Counter is a increment-only counter (inspired by vector clocks) in
@@ -32,15 +52,14 @@ case class GCounter(
   }
 
   def merge(that: GCounter): GCounter = {
-    that.state.foldLeft(GCounter(id = id)) { (newCounter, thatRecord) ⇒
-      val (thatKey, thatValue) = thatRecord
-      val thisValue = state(thatKey)
-      val newValue = Math.max(thisValue, thatValue)
-      newCounter + (thatKey, newValue)
+    (this.state.keySet ++ that.state.keySet).foldLeft(GCounter(id = id)) { (counter, key) ⇒
+      counter + (key, Math.max(this.state.get(key).getOrElse(0), that.state.get(key).getOrElse(0)))
     }
   }
 
-  override def toString: String = Json.stringify(GCounter.format.writes(this))
+  def view: ConvergentReplicatedDataTypeCounterView = GCounterView(id, value)
+
+  override def toJson: JsValue = GCounter.format.writes(this)
 }
 
 object GCounter {

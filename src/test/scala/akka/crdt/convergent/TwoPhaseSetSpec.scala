@@ -137,7 +137,8 @@ class TwoPhaseSetSpec extends WordSpec with MustMatchers {
     "be able to serialize itself to JSON" in {
       val c1 = TwoPhaseSet(id = "users")
 
-      stringify(toJson(c1)) must be("""{"type":"2p-set","id":"users","adds":{"type":"g-set","id":"users/adds","state":[]},"removes":{"type":"g-set","id":"users/removes","state":[]}}""")
+      stringify(c1.toJson) must be("""{"type":"2p-set","id":"users","adds":{"type":"g-set","id":"users/adds","state":[]},"removes":{"type":"g-set","id":"users/removes","state":[]}}""")
+      c1.toString must be("""{"type":"2p-set","id":"users","adds":{"type":"g-set","id":"users/adds","state":[]},"removes":{"type":"g-set","id":"users/removes","state":[]}}""")
 
       val c2 = c1 + user1
       val c3 = c2 + user2
@@ -145,7 +146,7 @@ class TwoPhaseSetSpec extends WordSpec with MustMatchers {
       val c4 = c3 - user2
       val c5 = c4 + user3
 
-      stringify(toJson(c5)) must be("""{"type":"2p-set","id":"users","adds":{"type":"g-set","id":"users/adds","state":[{"username":"john","password":"coltrane"},{"username":"sonny","password":"rollins"},{"username":"charlie","password":"parker"}]},"removes":{"type":"g-set","id":"users/removes","state":[{"username":"sonny","password":"rollins"}]}}""")
+      c5.toString must be("""{"type":"2p-set","id":"users","adds":{"type":"g-set","id":"users/adds","state":[{"username":"john","password":"coltrane"},{"username":"sonny","password":"rollins"},{"username":"charlie","password":"parker"}]},"removes":{"type":"g-set","id":"users/removes","state":[{"username":"sonny","password":"rollins"}]}}""")
     }
 
     "be able to serialize itself from JSON" in {
@@ -155,6 +156,26 @@ class TwoPhaseSetSpec extends WordSpec with MustMatchers {
       c1.value must contain(user1)
       c1.value must not contain (user2)
       c1.value must contain(user3)
+    }
+
+    "be able to serialize its view to JSON" in {
+      val c1 = TwoPhaseSet(id = "users")
+
+      val c2 = c1 + user1
+      val c3 = c2 + user2
+
+      val c4 = c3 - user2
+      val c5 = c4 + user3
+
+      c5.view.toString must be("""{"type":"set","id":"users","value":[{"username":"john","password":"coltrane"},{"username":"charlie","password":"parker"}]}""")
+    }
+
+    "be able to serialize its view from JSON" in {
+      val json = parse("""{"type":"set","id":"users","value":[{"username":"john","password":"coltrane"},{"username":"sonny","password":"rollins"},{"username":"charles","password":"mingus"},{"username":"charlie","password":"parker"}]}""")
+      val c1 = json.as[TwoPhaseSetView]
+
+      c1.id must be("users")
+      c1.value.size must be(4)
     }
   }
 }
