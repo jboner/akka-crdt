@@ -120,14 +120,14 @@ class CvRDTPlan(storage: ConvergentReplicatedDataTypeDatabase)
         case GET(Path(Seg("g-counter" :: Nil))) ⇒
           async {
             future { storage.getOrCreate[GCounter]().get } map { counter ⇒
-              jsonResponse(stringify(toJson(counter)))
+              jsonResponse(counter.view.toString)
             }
           }
 
         case GET(Path(Seg("g-counter" :: id :: Nil))) ⇒
           async {
             future { storage.getOrCreate[GCounter](id).get } map { counter ⇒
-              jsonResponse(stringify(toJson(counter)))
+              jsonResponse(counter.view.toString)
             }
           }
 
@@ -135,7 +135,7 @@ class CvRDTPlan(storage: ConvergentReplicatedDataTypeDatabase)
           if (params.isEmpty) { // POST with full CRDT body
             async {
               val json = new String(Body.bytes(req)).trim()
-              future { storage.update(parse(json).as[GCounter]) } map { _ ⇒ jsonResponse(json) }
+              future { storage.update(parse(json).as[GCounter]) } map { counter ⇒ jsonResponse(counter.view.toString) }
             }
           } else { // POST with params node/delta
             val validateParams = for {
@@ -153,7 +153,7 @@ class CvRDTPlan(storage: ConvergentReplicatedDataTypeDatabase)
               case Right((node, delta)) ⇒
                 async {
                   future { storage.update(storage.getOrCreate[GCounter](id).get + (node, delta)) } map { counter ⇒
-                    jsonResponse(stringify(toJson(counter)))
+                    jsonResponse(counter.view.toString)
                   }
                 }
               case Left(error) ⇒
@@ -167,14 +167,14 @@ class CvRDTPlan(storage: ConvergentReplicatedDataTypeDatabase)
         case GET(Path(Seg("pn-counter" :: Nil))) ⇒
           async {
             future { storage.getOrCreate[PNCounter]().get } map { counter ⇒
-              jsonResponse(stringify(toJson(counter)))
+              jsonResponse(counter.view.toString)
             }
           }
 
         case GET(Path(Seg("pn-counter" :: id :: Nil))) ⇒
           async {
             future { storage.getOrCreate[PNCounter](id).get } map { counter ⇒
-              jsonResponse(stringify(toJson(counter)))
+              jsonResponse(counter.view.toString)
             }
           }
 
@@ -182,7 +182,7 @@ class CvRDTPlan(storage: ConvergentReplicatedDataTypeDatabase)
           if (params.isEmpty) { // POST with full CRDT body
             async {
               val json = new String(Body.bytes(req)).trim()
-              future { storage.update(parse(json).as[PNCounter]) } map { _ ⇒ jsonResponse(json) }
+              future { storage.update(parse(json).as[PNCounter]) } map { counter ⇒ jsonResponse(counter.view.toString) }
             }
           } else { // POST with params node/delta
             val validateParams = for {
@@ -199,7 +199,7 @@ class CvRDTPlan(storage: ConvergentReplicatedDataTypeDatabase)
               case Right((node, delta)) ⇒
                 async {
                   future { storage.update(storage.getOrCreate[PNCounter](id).get + (node, delta)) } map { counter ⇒
-                    jsonResponse(stringify(toJson(counter)))
+                    jsonResponse(counter.view.toString)
                   }
                 }
               case Left(error) ⇒
