@@ -81,20 +81,6 @@ class RestServerSpec extends WordSpec with MustMatchers with BeforeAndAfterAll {
       result must be("""{"type":"counter","id":"jonas","value":1}""")
     }
 
-    "be able to update a g-counter JSON body" in {
-      val json = """{"type":"g-counter","id":"jonas","state":{"node1":2}}"""
-      val response = Http((newURL / "g-counter" / "jonas") << json <:< Map("Content-type" -> "application/json") OK as.String)
-      val result = Await.result(response, timeout).trim()
-      result must be("""{"type":"counter","id":"jonas","value":2}""")
-    }
-
-    "be get an error response if invalid g-counter JSON body is POSTed" ignore {
-      val json = """{"type":"g-counter","id":"jonas","state":{"node1":2}""" // not well-formed
-      val response = Http((newURL / "g-counter" / "jonas") << json <:< Map("Content-type" -> "application/json") OK as.String)
-      val result = Await.result(response, timeout).trim()
-      result must be("""{"type":"counter","id":"jonas","value":2}""")
-    }
-
     // =================================================================
     // pn-counter
     // =================================================================
@@ -121,19 +107,74 @@ class RestServerSpec extends WordSpec with MustMatchers with BeforeAndAfterAll {
       result must be("""{"type":"counter","id":"users3","value":-1}""")
     }
 
-    "be able to update a pn-counter JSON body" in {
-      val json = """{"type":"pn-counter","id":"users4","increments":{"type":"g-counter","id":"users4/inc","state":{"node1":2, "node2":1}},"decrements":{"type":"g-counter","id":"users4/dec","state":{"node1":1}}}"""
-      val response = Http((newURL / "pn-counter" / "users4") << json <:< Map("Content-type" -> "application/json") OK as.String)
-      val result = Await.result(response, timeout).trim()
-      result must be("""{"type":"counter","id":"users4","value":2}""")
+    // =================================================================
+    // g-set
+    // =================================================================
+
+    "be able to create a new g-set with a specific id" in {
+      val result = Await.result(Http(newURL / "g-set" / "users1" OK as.String), timeout).trim()
+      result must be("""{"type":"set","id":"users1","value":[]}""")
     }
 
-    "be get an error response if invalid pn-counter JSON body is POSTed" ignore {
-      val json = """{"type":"pn-counter","id":"users4","increments":{"type":"g-counter","id":"users4/inc","state":{"node1":2, "node2":1}},"decrements":{"type":"g-counter","id":"users4/dec","state":{"node1"=1}}}"""
-      val response = Http((newURL / "pn-counter" / "users4") << json <:< Map("Content-type" -> "application/json") OK as.String)
-      val result = Await.result(response, timeout).trim()
-      result must be("""{"type":"counter","id":"users4","value":2}""")
+    "be able to create a new g-set with a random id" in {
+      val result = Await.result(Http(newURL / "g-set" OK as.String), timeout).trim()
+      result.startsWith("""{"type":"set"""") must be(true)
     }
 
+    "be able to add a JSON value to a g-set" in {
+      val userValue = """{"username":"john","password":"coltrane"}"""
+      val response = Http((newURL / "g-set" / "users2" / "add") << userValue <:< Map("Content-type" -> "application/json") OK as.String)
+      val result = Await.result(response, timeout).trim()
+      result must be("""{"type":"set","id":"users2","value":[{"username":"john","password":"coltrane"}]}""")
+    }
+
+    "be able to add an invalid JSON value to a g-set" in {
+      val userValue = """{"username":"john","password":"coltrane}"""
+      val response = Http((newURL / "g-set" / "users3" / "add") << userValue <:< Map("Content-type" -> "application/json"))
+      val result = Await.result(response, timeout)
+      result.getResponseBody() must startWith("org.codehaus.jackson.JsonParseException: Unexpected end-of-input: was expecting closing quote for a string value")
+      result.getStatusCode() must be(400)
+      result.getStatusText() must be("Bad Request")
+    }
+
+    // =================================================================
+    // 2p-set
+    // =================================================================
+
+    "be able to create a new 2p-set with a specific id" in {
+      val result = Await.result(Http(newURL / "2p-set" / "users1" OK as.String), timeout).trim()
+      result must be("""{"type":"set","id":"users1","value":[]}""")
+    }
+
+    "be able to create a new 2p-set with a random id" in {
+      val result = Await.result(Http(newURL / "2p-set" OK as.String), timeout).trim()
+      result.startsWith("""{"type":"set"""") must be(true)
+    }
+
+    "be able to add a JSON value to a 2p-set" in {
+      val userValue = """{"username":"john","password":"coltrane"}"""
+      val response = Http((newURL / "2p-set" / "users2" / "add") << userValue <:< Map("Content-type" -> "application/json") OK as.String)
+      val result = Await.result(response, timeout).trim()
+      result must be("""{"type":"set","id":"users2","value":[{"username":"john","password":"coltrane"}]}""")
+    }
+
+    "be able to remove a JSON value from a 2p-set" in {
+      val userValue = """{"username":"john","password":"coltrane"}"""
+      val response1 = Http((newURL / "2p-set" / "users3" / "add") << userValue <:< Map("Content-type" -> "application/json") OK as.String)
+      val result1 = Await.result(response1, timeout).trim()
+      result1 must be("""{"type":"set","id":"users3","value":[{"username":"john","password":"coltrane"}]}""")
+      val response2 = Http((newURL / "2p-set" / "users3" / "remove") << userValue <:< Map("Content-type" -> "application/json") OK as.String)
+      val result2 = Await.result(response2, timeout).trim()
+      result2 must be("""{"type":"set","id":"users3","value":[]}""")
+    }
+
+    "be able to add an invalid JSON value to a 2p-set" in {
+      val userValue = """{"username":"john","password":"coltrane}"""
+      val response = Http((newURL / "2p-set" / "users4" / "add") << userValue <:< Map("Content-type" -> "application/json"))
+      val result = Await.result(response, timeout)
+      result.getResponseBody() must startWith("org.codehaus.jackson.JsonParseException: Unexpected end-of-input: was expecting closing quote for a string value")
+      result.getStatusCode() must be(400)
+      result.getStatusText() must be("Bad Request")
+    }
   }
 }

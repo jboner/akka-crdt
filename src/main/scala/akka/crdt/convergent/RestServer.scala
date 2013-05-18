@@ -10,13 +10,13 @@ import scala.util.{ Success, Failure }
 import scala.util.control.NonFatal
 import play.api.libs.json.Json.{ toJson, parse, stringify }
 import play.api.libs.json.JsValue
+import com.typesafe.config.ConfigFactory
 import unfiltered.Async
 import unfiltered.request._
 import unfiltered.response._
 import unfiltered.netty._
 import unfiltered.util._
 import QParams._
-import com.typesafe.config.ConfigFactory
 
 /**
  * Used to run as a main server in demos etc. Starts up on random port on 127.0.0.1.
@@ -71,15 +71,14 @@ class RestServer(storage: ConvergentReplicatedDataTypeDatabase) {
   final val hostname = storage.settings.RestServerHostname
   final val port = storage.settings.RestServerPort
 
-  def start(): Unit = {
-    http = Some(Http(port, hostname).handler(new CvRDTPlan(storage)).start())
-  }
+  def start(): Unit = http = Some(Http(port, hostname).handler(new CvRDTPlan(storage)).start())
 
   def shutdown(): Unit = http foreach (_.stop())
 }
 
 trait AsyncPlan {
   val END = "\r\n"
+
   def async[A](body: ⇒ Future[ResponseFunction[A]])(implicit responder: Async.Responder[A], executionContext: ExecutionContext): Unit = {
     try {
       body onComplete {
@@ -91,13 +90,13 @@ trait AsyncPlan {
     }
   }
 
-  def textResponse[A](content: String): ResponseFunction[A] = PlainTextContent ~> ResponseString(content + END)
+  def textResponse[A](content: String): ResponseFunction[A] = Ok ~> PlainTextContent ~> ResponseString(content + END)
 
-  def jsonResponse[A](json: String): ResponseFunction[A] = JsonContent ~> ResponseString(json + END)
+  def jsonResponse[A](json: String): ResponseFunction[A] = Ok ~> JsonContent ~> ResponseString(json + END)
 
   def errorResponse[A](error: String): ResponseFunction[A] = BadRequest ~> PlainTextContent ~> ResponseString(error + END)
 
-  def errorResponse[A](error: Throwable): ResponseFunction[A] = errorResponse(error.getMessage)
+  def errorResponse[A](error: Throwable): ResponseFunction[A] = errorResponse(error.toString)
 }
 
 class CvRDTPlan(storage: ConvergentReplicatedDataTypeDatabase)
@@ -132,33 +131,26 @@ class CvRDTPlan(storage: ConvergentReplicatedDataTypeDatabase)
           }
 
         case POST(Path(Seg("g-counter" :: id :: Nil))) & Params(params) ⇒
-          if (params.isEmpty) { // POST with full CRDT body
-            async {
-              val json = new String(Body.bytes(req)).trim()
-              future { storage.update(parse(json).as[GCounter]) } map { counter ⇒ jsonResponse(counter.view.toString) }
-            }
-          } else { // POST with params node/delta
-            val validateParams = for {
-              node ← lookup("node") is
-                required("'node' is missing") is
-                trimmed is
-                nonempty("'node' is empty")
-              delta ← lookup("delta") is
-                required("'delta' is missing") is
-                int(s ⇒ s"$s' is not an integer") is
-                pred(i ⇒ i >= 1, _ ⇒ "delta must be >= 1")
-            } yield (node.get, delta.get)
+          val validateParams = for {
+            node ← lookup("node") is
+              required("'node' is missing") is
+              trimmed is
+              nonempty("'node' is empty")
+            delta ← lookup("delta") is
+              required("'delta' is missing") is
+              int(s ⇒ s"$s' is not an integer") is
+              pred(i ⇒ i >= 1, _ ⇒ "delta must be >= 1")
+          } yield (node.get, delta.get)
 
-            validateParams(params) match {
-              case Right((node, delta)) ⇒
-                async {
-                  future { storage.update(storage.getOrCreate[GCounter](id).get + (node, delta)) } map { counter ⇒
-                    jsonResponse(counter.view.toString)
-                  }
+          validateParams(params) match {
+            case Right((node, delta)) ⇒
+              async {
+                future { storage.update(storage.getOrCreate[GCounter](id).get + (node, delta)) } map { counter ⇒
+                  jsonResponse(counter.view.toString)
                 }
-              case Left(error) ⇒
-                responder.respond(errorResponse(error.map(e ⇒ s"Parameter ${e.error}").mkString("", ", ", END)))
-            }
+              }
+            case Left(error) ⇒
+              responder.respond(errorResponse(error.map(e ⇒ s"Parameter ${e.error}").mkString("", ", ", END)))
           }
 
         // =================================================================
@@ -179,33 +171,99 @@ class CvRDTPlan(storage: ConvergentReplicatedDataTypeDatabase)
           }
 
         case POST(Path(Seg("pn-counter" :: id :: Nil))) & Params(params) ⇒
-          if (params.isEmpty) { // POST with full CRDT body
-            async {
-              val json = new String(Body.bytes(req)).trim()
-              future { storage.update(parse(json).as[PNCounter]) } map { counter ⇒ jsonResponse(counter.view.toString) }
-            }
-          } else { // POST with params node/delta
-            val validateParams = for {
-              node ← lookup("node") is
-                required("'node' is missing") is
-                trimmed is
-                nonempty("'node' is empty")
-              delta ← lookup("delta") is
-                required("'delta' is missing") is
-                int(s ⇒ s"$s' is not an integer") // can be negative
-            } yield (node.get, delta.get)
+          val validateParams = for {
+            node ← lookup("node") is
+              required("'node' is missing") is
+              trimmed is
+              nonempty("'node' is empty")
+            delta ← lookup("delta") is
+              required("'delta' is missing") is
+              int(s ⇒ s"$s' is not an integer") // can be negative
+          } yield (node.get, delta.get)
 
-            validateParams(params) match {
-              case Right((node, delta)) ⇒
-                async {
-                  future { storage.update(storage.getOrCreate[PNCounter](id).get + (node, delta)) } map { counter ⇒
-                    jsonResponse(counter.view.toString)
-                  }
+          validateParams(params) match {
+            case Right((node, delta)) ⇒
+              async {
+                future { storage.update(storage.getOrCreate[PNCounter](id).get + (node, delta)) } map { counter ⇒
+                  jsonResponse(counter.view.toString)
                 }
-              case Left(error) ⇒
-                responder.respond(errorResponse(error map { e ⇒ s"$e.name $e.error" } mkString ("", ", ", END)))
+              }
+            case Left(error) ⇒
+              responder.respond(errorResponse(error map { e ⇒ s"$e.name $e.error" } mkString ("", ", ", END)))
+          }
+
+        // =================================================================
+        // g-set
+        // =================================================================
+        case GET(Path(Seg("g-set" :: Nil))) ⇒
+          async {
+            future { storage.getOrCreate[GSet]().get } map { set ⇒
+              jsonResponse(set.view.toString)
             }
           }
+
+        case GET(Path(Seg("g-set" :: id :: Nil))) ⇒
+          async {
+            future { storage.getOrCreate[GSet](id).get } map { set ⇒
+              jsonResponse(set.view.toString)
+            }
+          }
+
+        case POST(Path(Seg("g-set" :: id :: "add" :: Nil))) ⇒
+          async {
+            val jsonValue = parse(new String(Body.bytes(req)).trim())
+            future {
+              val oldSet = storage.getOrCreate[GSet](id).get
+              val newSet = oldSet + jsonValue
+              storage.update(newSet)
+            } map { set ⇒
+              jsonResponse(set.view.toString)
+            }
+          }
+
+        // =================================================================
+        // 2p-set
+        // =================================================================
+        case GET(Path(Seg("2p-set" :: Nil))) ⇒
+          async {
+            future { storage.getOrCreate[TwoPhaseSet]().get } map { set ⇒
+              jsonResponse(set.view.toString)
+            }
+          }
+
+        case GET(Path(Seg("2p-set" :: id :: Nil))) ⇒
+          async {
+            future { storage.getOrCreate[TwoPhaseSet](id).get } map { set ⇒
+              jsonResponse(set.view.toString)
+            }
+          }
+
+        case POST(Path(Seg("2p-set" :: id :: "add" :: Nil))) ⇒
+          async {
+            val jsonValue = parse(new String(Body.bytes(req)).trim())
+            future {
+              val oldSet = storage.getOrCreate[TwoPhaseSet](id).get
+              val newSet = oldSet + jsonValue
+              storage.update(newSet)
+            } map { set ⇒
+              jsonResponse(set.view.toString)
+            }
+          }
+
+        case POST(Path(Seg("2p-set" :: id :: "remove" :: Nil))) ⇒
+          async {
+            val jsonValue = parse(new String(Body.bytes(req)).trim())
+            future {
+              val oldSet = storage.getOrCreate[TwoPhaseSet](id).get
+              val newSet = oldSet - jsonValue
+              storage.update(newSet)
+            } map { set ⇒
+              jsonResponse(set.view.toString)
+            }
+          }
+
+        case invalid ⇒
+          responder.respond(errorResponse(s"Invalid request: ${invalid.method} ${invalid.uri}"))
       }
   }
 }

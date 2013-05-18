@@ -5,11 +5,10 @@
 package akka.crdt.convergent
 
 import akka.actor._
-import akka.event.{ Logging, LogSource, LoggingAdapter }
-import akka.contrib.pattern.DistributedPubSubExtension
-import akka.contrib.pattern.DistributedPubSubMediator
-import akka.contrib.pattern.DistributedPubSubMediator._
 import akka.cluster.Cluster
+import akka.event.{ Logging, LogSource, LoggingAdapter }
+import akka.contrib.pattern.{DistributedPubSubExtension, DistributedPubSubMediator}
+import DistributedPubSubMediator._
 import play.api.libs.json.Json.{ toJson, parse, stringify }
 import play.api.libs.json.JsValue
 import scala.util.Try
@@ -49,8 +48,9 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
         (classOf[ConvergentReplicatedDataTypeSettings], settings),
         (classOf[LoggingAdapter], log))).get // get the instance or throw the error
 
+  // TODO: perhaps use gossip instead of broadcast using pub/sub?
   private val publisher = system.actorOf(Props[Publisher], name = "crdt:publisher")
-
+  
   private val subscriber = system.actorOf(Props(new Subscriber(storage)), name = "crdt:subscriber")
 
   private val restServer = if (settings.RestServerRun) {
