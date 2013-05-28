@@ -5,6 +5,9 @@
 package akka.crdt.convergent
 
 import com.typesafe.config.Config
+import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
+import java.util.concurrent.TimeUnit
 
 class ConvergentReplicatedDataTypeSettings(val config: Config, val name: String) {
   import config._
@@ -13,6 +16,8 @@ class ConvergentReplicatedDataTypeSettings(val config: Config, val name: String)
   final val RestServerRun: Boolean = getBoolean("akka.crdt.rest-server.run")
   final val RestServerHostname: String = getString("akka.crdt.rest-server.hostname")
   final val RestServerPort: Int = getInt("akka.crdt.rest-server.port")
+
+  final val BatchingWindow: FiniteDuration = Duration(getMilliseconds("akka.crdt.convergent.batching-window"), TimeUnit.MILLISECONDS)
 
   final val StorageClass = {
     val classname = getString("akka.crdt.convergent.storage-class")

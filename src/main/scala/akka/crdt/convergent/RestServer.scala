@@ -19,7 +19,7 @@ import unfiltered.util._
 import QParams._
 
 /**
- * Used to run as a main server in demos etc. Starts up on random port on 127.0.0.1.
+ * Used to run as a main server in demos etc. Starts up on port 9000 on 0.0.0.0.
  *
  * POST:
  * <pre>
@@ -31,8 +31,11 @@ import QParams._
  * 		curl -i -H "Accept: application/json" http://127.0.0.1:9000/g-counter/jonas
  * </pre>
  */
-object RestServer {
+object DemoRestServer {
+
   def main(args: Array[String]): Unit = {
+
+    // FIXME make config configurable for RestServer - even if it is only for demo purposes, to be able to change ports, debug level etc.
     val config = ConfigFactory.parseString("""
 			akka {
 				actor.provider = akka.cluster.ClusterActorRefProvider
@@ -53,18 +56,26 @@ object RestServer {
 				}
 			}
 			""")
-    val system = ActorSystem("CvRDTDatabase", config)
+    val system = ActorSystem("crdt", config)
     val storage = ConvergentReplicatedDataTypeDatabase(system)
     println(s"""
-		======================================================================================
-		★ ★ ★  CvRDT Database Server listening on port: ${config.getInt("akka.crdt.rest-server.port")}. Press any key to exit...  ★ ★ ★
-		======================================================================================""")
+		=====================================================================================
+		★ ★ ★  CRDT Database Server listening on port: ${config.getInt("akka.crdt.rest-server.port")}. Press any key to exit...  ★ ★ ★
+		=====================================================================================""")
     System.in.read()
     storage.shutdown()
     system.shutdown()
   }
 }
 
+// FIXME Create a generic configurable server to run in Akka Microkernel
+
+/**
+ * Rest server for CRDT storage.
+ *
+ * Is started up automatically by the `ConvergentReplicatedDataTypeDatabase`
+ * extension, if "akka.crdt.rest-server.run = on".
+ */
 class RestServer(storage: ConvergentReplicatedDataTypeDatabase) {
   @volatile private var http: Option[Http] = None
 

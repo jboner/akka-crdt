@@ -37,14 +37,15 @@ class LevelDbStorage(
     val options = new Options()
       .createIfMissing(true)
       .cacheSize(cacheSize)
-      .logger(new Logger() {
-        def log(message: String) = storage.log.debug(message)
-      })
+      .logger(new Logger() { def log(message: String) = storage.log.debug(message) })
     if (useNative) options.compressionType(CompressionType.SNAPPY)
     else options.compressionType(CompressionType.NONE)
   }
 
-  private def createDb(filename: String): DB = factory.open(new File(filename), leveldbOptions)
+  private def createDb(filename: String): DB = {
+    log.info("Creating new LevelDB storage")
+    factory.open(new File(filename), leveldbOptions)
+  }
 
   private val gCountersFilename = s"${filenamePrefix}_g_counters"
   private val pnCountersFilename = s"${filenamePrefix}_pn_counters"
@@ -71,43 +72,53 @@ class LevelDbStorage(
       else if (classOf[GSet].isAssignableFrom(clazz)) parse(asString(gSets.get(bytes(id)))).as[GSet]
       else if (classOf[TwoPhaseSet].isAssignableFrom(clazz)) parse(asString(twoPhaseSets.get(bytes(id)))).as[TwoPhaseSet]
       else throw new ClassCastException(s"Could create new CvRDT with id [$id] and type [$clazz]")
+    log.debug("Finding CRDT in LevelDB: {}", crdt)
     crdt.asInstanceOf[T]
   }
 
-  def store(counter: GCounter): Unit = gCounters.put(bytes(counter.id), bytes(counter.toString))
-  def store(counter: PNCounter): Unit = pnCounters.put(bytes(counter.id), bytes(counter.toString))
-  def store(set: GSet): Unit = gSets.put(bytes(set.id), bytes(set.toString))
-  def store(set: TwoPhaseSet): Unit = twoPhaseSets.put(bytes(set.id), bytes(set.toString))
+  def store[T <: ConvergentReplicatedDataType: ClassTag](crdt: T): Unit = {
+    log.debug("Storing CvRDT in LevelDB: {}", crdt)
+    val clazz = implicitly[ClassTag[T]].runtimeClass
+    val db = databaseFor(clazz)
+    db.put(bytes(crdt.id), bytes(crdt.toString))
+  }
 
   /**
    * Store a batch.
    */
   def store[T <: ConvergentReplicatedDataType: ClassTag](crdts: immutable.Seq[T]): Unit = {
+    log.debug("Storing batch in LevelDB: {}", crdts.mkString(", "))
     val clazz = implicitly[ClassTag[T]].runtimeClass
-
-    val db =
-      if (classOf[GCounter].isAssignableFrom(clazz)) gCounters
-      else if (classOf[PNCounter].isAssignableFrom(clazz)) pnCounters
-      else if (classOf[GSet].isAssignableFrom(clazz)) gSets
-      else if (classOf[TwoPhaseSet].isAssignableFrom(clazz)) twoPhaseSets
-      else throw new ClassCastException(s"Could store CvRDT with type [$clazz]")
-
+    val db = databaseFor(clazz)
     val batch = db.createWriteBatch()
     try {
+      crdts foreach { crdt ⇒ batch put (bytes(crdt.id), bytes(crdt.toString)) }
       db.write(batch, levelDbWriteOptions)
-      crdts foreach { crdt ⇒
-        batch put (bytes(crdt.id), bytes(crdt.toString))
-      }
     } finally batch.close()
   }
 
-  override def close(): Unit = databases foreach { case (_, db) ⇒ db.close() }
+  override def close(): Unit = {
+    log.info("Closing LevelDB storage")
+    databases foreach { case (_, db) ⇒ db.close() }
+  }
 
-  override def destroy(): Unit = databases foreach {
-    case (filename, _) ⇒
-      factory.destroy(new File(filename), new Options)
+  override def destroy(): Unit = {
+    log.info("Destroying LevelDB storage")
+    databases foreach {
+      case (filename, _) ⇒
+        factory.destroy(new File(filename), new Options)
+    }
+  }
+
+  private def databaseFor(clazz: Class[_]): DB = {
+    if (classOf[GCounter].isAssignableFrom(clazz)) gCounters
+    else if (classOf[PNCounter].isAssignableFrom(clazz)) pnCounters
+    else if (classOf[GSet].isAssignableFrom(clazz)) gSets
+    else if (classOf[TwoPhaseSet].isAssignableFrom(clazz)) twoPhaseSets
+    else throw new ClassCastException(s"Could store CvRDT with type [$clazz]")
   }
 }
+
 /*
 TODO: Stuff to look into (from LevelDBJNI docs):
  

@@ -7,12 +7,14 @@ package akka.crdt.convergent
 import akka.actor._
 import akka.cluster.Cluster
 import akka.event.{ Logging, LogSource, LoggingAdapter }
-import akka.contrib.pattern.{DistributedPubSubExtension, DistributedPubSubMediator}
+import akka.contrib.pattern.{ DistributedPubSubExtension, DistributedPubSubMediator }
 import DistributedPubSubMediator._
 import play.api.libs.json.Json.{ toJson, parse, stringify }
 import play.api.libs.json.JsValue
 import scala.util.Try
 import scala.reflect.ClassTag
+import scala.collection.immutable
+import scala.concurrent.duration._
 import java.util.UUID
 
 object ConvergentReplicatedDataTypeDatabase
@@ -36,9 +38,7 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
   implicit val system = sys
 
   val log = Logging(sys, ConvergentReplicatedDataTypeDatabase.this)
-
   val nodename = Cluster(sys).selfAddress.hostPort.replace('@', '_').replace(':', '_')
-
   val settings = new ConvergentReplicatedDataTypeSettings(system.settings.config, system.name)
 
   private val storage: Storage =
@@ -49,9 +49,11 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
         (classOf[LoggingAdapter], log))).get // get the instance or throw the error
 
   // TODO: perhaps use gossip instead of broadcast using pub/sub?
-  private val publisher = system.actorOf(Props[Publisher], name = "crdt:publisher")
-  
-  private val subscriber = system.actorOf(Props(new Subscriber(storage)), name = "crdt:subscriber")
+  // TODO: perhaps we should write to a (configurable) quorum instead of broadcasting to every node?
+
+  // FIXME: perhaps use common supervisor for the pub/sub actors?
+  private val publisher = system.actorOf(Props(classOf[Publisher], settings), name = "crdt:publisher")
+  private val subscriber = system.actorOf(Props(classOf[Subscriber], storage), name = "crdt:subscriber")
 
   private val restServer = if (settings.RestServerRun) {
     val rs = new RestServer(this)
@@ -72,24 +74,32 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
     else throw new ClassCastException(s"Could create new CvRDT with id [$id] and type [$clazz]")
   }
 
-  def update(crdt: GCounter): GCounter = {
-    publish(toJson(crdt)) // need a separate method for each type for the implicit resolution of JSON Format to work
-    crdt
+  def update(counter: GCounter): GCounter = {
+    val newCounter = storage.findById[GCounter](counter.id) map { _ merge counter } getOrElse { counter } // merge if existing
+    storage.store(newCounter) // store locally first
+    publish(toJson(counter)) // publish to peers 
+    newCounter
   }
 
-  def update(crdt: PNCounter): PNCounter = {
-    publish(toJson(crdt))
-    crdt
+  def update(counter: PNCounter): PNCounter = {
+    val newCounter = storage.findById[PNCounter](counter.id) map { _ merge counter } getOrElse { counter }
+    storage.store(newCounter)
+    publish(toJson(counter))
+    newCounter
   }
 
-  def update(crdt: GSet): GSet = {
-    publish(toJson(crdt))
-    crdt
+  def update(set: GSet): GSet = {
+    val newSet = storage.findById[GSet](set.id) map { _ merge set } getOrElse { set }
+    storage.store(newSet)
+    publish(toJson(set))
+    newSet
   }
 
-  def update(crdt: TwoPhaseSet): TwoPhaseSet = {
-    publish(toJson(crdt))
-    crdt
+  def update(set: TwoPhaseSet): TwoPhaseSet = {
+    val newSet = storage.findById[TwoPhaseSet](set.id) map { _ merge set } getOrElse { set }
+    storage.store(newSet)
+    publish(toJson(set))
+    newSet
   }
 
   def shutdown(): Unit = {
@@ -105,25 +115,51 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
 
 /**
  * Publishing (broadcasting) CRDT changes to all nodes with a Subscriber.
+ * Uses a configurable batching window.
  */
-class Publisher extends Actor with ActorLogging {
+class Publisher(settings: ConvergentReplicatedDataTypeSettings) extends Actor with ActorLogging {
+  final val BatchingWindowInMillis = settings.BatchingWindow
+  final val subscriber = "/user/crdt:subscriber"
+
   val pubsub = DistributedPubSubExtension(context.system).mediator
-  val subscriber = "/user/crdt:subscriber"
+
+  // FIXME: Do not send a Seq with JSON strings across the wire - but plain JSON
+  var batch: immutable.Seq[String] = _
+  var batchingWindow: Deadline = _
 
   override def preStart(): Unit = {
     log.info("Starting CvRDT change publisher")
+    newBatchingWindow()
   }
 
-  // ================================================================================
-  // FIXME make use of batching (add a time window)
-  // ================================================================================
+  def newBatchingWindow(): Unit = {
+    batchingWindow = BatchingWindowInMillis.fromNow
+    context setReceiveTimeout BatchingWindowInMillis
+    batch = immutable.Seq.empty[String]
+  }
+
+  def sendBatch(): Unit = {
+    if (!batch.isEmpty) { // only send a non-empty batch
+      log.debug("Broadcasting changes {}", batch.mkString(", "))
+
+      // FIXME Use 'pubsub ! SendToAll(subscriber, batch, allButSelf = true)' once next release of Akka 2.2 is out.
+      pubsub ! SendToAll(subscriber, batch)
+    }
+    newBatchingWindow()
+  }
 
   def receive = {
     case json: JsValue ⇒
-      log.debug("Broadcasting changes {}", json)
-      pubsub ! SendToAll(subscriber, stringify(json))
+      val jsonString = stringify(json)
+      log.debug("Adding JSON to batch {}", jsonString)
+      batch = batch :+ jsonString // add to batch    	
+      if (batchingWindow.isOverdue) sendBatch() // if batching window is closed - ship batch and reset window
 
-    case unknown ⇒ log.error("Received unknown message: {}", unknown)
+    case ReceiveTimeout ⇒
+      sendBatch() // if no messages within batching window - ship batch and reset window
+
+    case unknown ⇒
+      log.error("Received unknown message: {}", unknown)
   }
 }
 
@@ -138,54 +174,61 @@ class Subscriber(storage: Storage) extends Actor with ActorLogging {
     pubsub ! Put(self)
   }
 
-  // ================================================================================
-  // FIXME make use of batching (add a time window): 'store(crdts: immutable.Seq[T])'
-  // ================================================================================
-
   def receive: Receive = {
-    case jsonString: String ⇒
-      val json = parse(jsonString)
-      (json \ "type").as[String] match {
+    case batch: immutable.Seq[_] ⇒
+      // group CRDTs by type to allow writing batches to native storage in an efficient way
+      var gcounters = immutable.Seq.empty[GCounter]
+      var pncounters = immutable.Seq.empty[PNCounter]
+      var gsets = immutable.Seq.empty[GSet]
+      var twopsets = immutable.Seq.empty[TwoPhaseSet]
 
-        case "g-counter" ⇒
-          val counter = json.as[GCounter]
-          log.debug("Received update g-counter[{}]", counter)
-          val id = counter.id
-          val newCounter = storage.findById[GCounter](id) map { _ merge counter } getOrElse { counter }
-          storage.store(newCounter)
-          context.system.eventStream.publish(newCounter)
-          log.debug("New merged g-counter [{}]", newCounter)
+      // TODO can we rewrite this in a functional (yet fast) way? 
+      batch foreach { item ⇒
+        item match {
+          case jsonString: String ⇒
+            val json = parse(jsonString)
+            (json \ "type").as[String] match {
 
-        case "pn-counter" ⇒
-          val counter = json.as[PNCounter]
-          log.debug("Received update pn-counter[{}]", counter)
-          val id = counter.id
-          val newCounter = storage.findById[PNCounter](id) map { _ merge counter } getOrElse { counter }
-          storage.store(newCounter)
-          context.system.eventStream.publish(newCounter)
-          log.debug("New merged pn-counter [{}]", newCounter)
+              case "g-counter" ⇒
+                val counter = json.as[GCounter]
+                val newCounter = storage.findById[GCounter](counter.id) map { _ merge counter } getOrElse { counter }
+                gcounters = gcounters :+ newCounter
+                context.system.eventStream.publish(newCounter)
+                log.debug("Updated g-counter [{}]", newCounter)
 
-        case "g-set" ⇒
-          val set = json.as[GSet]
-          log.debug("Received update g-set [{}]", set)
-          val id = set.id
-          val newSet = storage.findById[GSet](id) map { _ merge set } getOrElse { set }
-          storage.store(newSet)
-          context.system.eventStream.publish(newSet)
-          log.debug("New merged g-set [{}]", newSet)
+              case "pn-counter" ⇒
+                val counter = json.as[PNCounter]
+                val newCounter = storage.findById[PNCounter](counter.id) map { _ merge counter } getOrElse { counter }
+                pncounters = pncounters :+ newCounter
+                context.system.eventStream.publish(newCounter)
+                log.debug("Updated pn-counter [{}]", newCounter)
 
-        case "2p-set" ⇒
-          val set = json.as[TwoPhaseSet]
-          log.debug("Received update 2p-set [{}]", set)
-          val id = set.id
-          val newSet = storage.findById[TwoPhaseSet](id) map { _ merge set } getOrElse { set }
-          storage.store(newSet)
-          context.system.eventStream.publish(newSet)
-          log.debug("New merged 2p-set [{}]", newSet)
+              case "g-set" ⇒
+                val set = json.as[GSet]
+                val newSet = storage.findById[GSet](set.id) map { _ merge set } getOrElse { set }
+                gsets = gsets :+ newSet
+                context.system.eventStream.publish(newSet)
+                log.debug("Updated g-set [{}]", newSet)
 
-        case _ ⇒ log.error("Received JSON is not a CvRDT: {}", jsonString)
+              case "2p-set" ⇒
+                val set = json.as[TwoPhaseSet]
+                val newSet = storage.findById[TwoPhaseSet](set.id) map { _ merge set } getOrElse { set }
+                twopsets = twopsets :+ newSet
+                context.system.eventStream.publish(newSet)
+                log.debug("Updated 2p-set [{}]", newSet)
+
+              case _ ⇒ log.error("Received JSON is not a CvRDT: {}", jsonString)
+            }
+          case _ ⇒ throw new IllegalStateException("Received batch of non-String change sets: should not happen")
+        }
+
+        // store the batches
+        if (!gcounters.isEmpty) storage.store(gcounters)
+        if (!pncounters.isEmpty) storage.store(pncounters)
+        if (!gsets.isEmpty) storage.store(gsets)
+        if (!twopsets.isEmpty) storage.store(twopsets)
       }
 
-    case unknown ⇒ log.error("Received unknown message: {}", unknown)
+    case unknown ⇒ throw new IllegalStateException(s"Received unknown message: $unknown")
   }
 }
