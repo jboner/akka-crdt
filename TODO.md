@@ -1,12 +1,16 @@
 # TODO
 
-"Specification" below refers to the CRDT paper [A comprehensive study of Convergent and Commutative Replicated Data Types](http://hal.upmc.fr/docs/00/55/55/88/PDF/techreport.pdf) by Mark Shapiro et. al.
+_Specification \<number\>_ below refers to the section in the paper [A comprehensive study of Convergent and Commutative Replicated Data Types](http://hal.upmc.fr/docs/00/55/55/88/PDF/techreport.pdf) describing the CRDT.
 
+Scratched out means DONE.
 
 ## Write documentation
 
 Write docs for: 
 
+* <del>The functionality and semantics of the CvRDT</del>
+* <del>The JSON view of each CvRDT</del>
+* <del>Simple JavaScript demo querying the REST server</del>
 * How to start up the cluster service
 * LevelDB and other storage options
 * REST API 
@@ -23,18 +27,18 @@ Write docs for:
 
 ### Counters
 
-* DONE Specification 6  State-based increment-only counter
-* DONE Specification 7  State-based PN-Counter
+* <del>Specification 6  State-based increment-only counter</del>
+* <del>Specification 7  State-based PN-Counter</del>
+
+### Sets
+
+* <del>Specification 11 State-based grow-only Set (G-Set)</del>
+* <del>Specification 12 State-based 2P-Set</del>
 
 ### Registers
 
 * Specification 8       State-based Last-Writer-Wins Register (LWW Register)
 * Specification 10      State-based Multi-Value Register (MV-Register)
-
-### Sets
-
-* DONE Specification 11 State-based grow-only Set (G-Set)
-* DONE Specification 12 State-based 2P-Set
 
 ## CmRDTs (ops-based)
 
