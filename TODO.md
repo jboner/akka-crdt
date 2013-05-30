@@ -2,23 +2,23 @@
 
 _Specification \<number\>_ below refers to the section in the paper [A comprehensive study of Convergent and Commutative Replicated Data Types](http://hal.upmc.fr/docs/00/55/55/88/PDF/techreport.pdf) describing the CRDT.
 
-Scratched out means DONE.
+<del>Scratched out</del> means DONE.
 
-## Write documentation
+## Documentation
 
 Write docs for: 
 
 * <del>The functionality and semantics of the CvRDT</del>
 * <del>The JSON view of each CvRDT</del>
 * <del>Simple JavaScript demo querying the REST server</del>
-* How to start up the cluster service
-* LevelDB and other storage options
-* REST API 
-* Scala CRDT API
+* <del>How to start up the cluster service</del>
+* <del>REST API</del>
+* <del>Scala CRDT API</del>
+* <del>How to run the DemoRestServer</del>
+* <del>Architecture (pub/sub, leveldb) etc.</del>
+* <del>Configuration</del>
 * Scala ClusterClient API 
-* How to run the DemoRestServer
-* Architecture (pub/sub, leveldb) etc.
-* Configuration
+* LevelDB and other storage options
 * More background and concepts around CRDT, CAP and CALM
 * Explain difference between CvRDT and CmRDT
 
@@ -69,11 +69,11 @@ Write docs for:
 
 ## Misc Stuff
 
-### Garbage Collection
+### Garbage Collection for CvRDTs
 
-* How? Needs consensus? Performed by Leader/Singleton?
+* TODO
 
-### Reliable Broadcast
+### Reliable Broadcast for CmRDTs
 
 * Using eventsourced - [Use the Akka 2.2 branch](https://github.com/eligosource/eventsourced/tree/wip-akka-2.2).
 
