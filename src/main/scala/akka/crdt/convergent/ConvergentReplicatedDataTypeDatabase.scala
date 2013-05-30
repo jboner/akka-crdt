@@ -18,6 +18,7 @@ import scala.concurrent.duration._
 import java.util.UUID
 import akka.cluster.ClusterEvent._
 import akka.cluster.Member
+import akka.crdt.RestServer
 
 object ConvergentReplicatedDataTypeDatabase
   extends ExtensionId[ConvergentReplicatedDataTypeDatabase]
@@ -125,12 +126,13 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
   }
 
   def shutdown(): Unit = {
-    log.info("Shutting down ConvergentReplicatedDataTypeDatabase")
+    log.info("Shutting down ConvergentReplicatedDataTypeDatabase...")
     restServer foreach { _.shutdown() }
     system.stop(subscriber)
     system.stop(publisher)
     system.stop(clusterListener)
     storage.destroy()
+    log.info("ConvergentReplicatedDataTypeDatabase shut down successfully")
   }
 
   private def publish(json: JsValue): Unit = publisher ! json

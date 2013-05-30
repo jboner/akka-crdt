@@ -25,13 +25,24 @@ CvRDTs are _state-based_ and do not require a fully reliable broadcast since eve
 
 CmRDT are _operations-based_ and do require a fully reliable broadcast since only the events are stored and a CmRDT is brought up to its current state by replaying the event log. This implementation is based on a persistent transaction log realised through the [eventsourced](https://github.com/eligosource/eventsourced) library.
 
+## REST Server
+
+You can run the REST server in two different ways. 
+
+1. Run it in stand-alone mode from the command line. Here you run it by invoking ``sbt run`` in the project root directory. You configure it through JVM options, which will override the default configuration values. Example: ``sbt run -Dakka.crdt.rest-server.port=9999``
+
+2. Embedded in an Akka application. Just create the extension using ``val storage = ConvergentReplicatedDataTypeDatabase(system)`` and off you go. The REST server will be started automatically if the ``akka.crdt.rest-server.run`` is set to ``on``.
+
+
+Each CRDT has a read-only JSON view representation which is used in the REST API for querying data. For details on the REST API and the different JSON views see the section with the different CRDT descriptions below. 
+
 ## Scala Server API
 
 You can create the ``ConvergentReplicatedDataTypeDatabase`` Extension like this (from within an actor): 
 
     val storage = ConvergentReplicatedDataTypeDatabase(context.system)
 
-Get (or create a new) CRDT ``g-counter`` by id:
+Get (or create a new) CRDT by id:
 
     val nrOfUsers = storage.getOrCreate[GCounter]("users")
 
@@ -43,20 +54,10 @@ Store the updated CRDT:
 
     storage update updatedNrOfUsers
 
-Shut down the ``ConvergentReplicatedDataTypeDatabase`` Extension:
+Shut down the database:
 
     storage.shutdown()
-
-Although it will also be shut down automatically when the actor system is shut down.
     
-## REST Server
-
-The REST server will be started automatically by the ``ConvergentReplicatedDataTypeDatabase`` Extension if the ``akka.crdt.rest-server.run`` is set to ``on``.  
-
-There is also a demo server you can run by invoking ``sbt run`` in the project root directory or by other means starting up the ``akka.crdt.convergent.DemoRestServer`` main class. If needed we can create  fully fledged configurable command line server as well for those that just want a REST based CRDT storage and are not using it from within/alongside an Akka application. 
-
-Each CRDT has a read-only JSON view representation which is used in the REST API for querying data. For details on the REST API and the different JSON views see the section with the different CRDT descriptions below. 
-
 ## Convergent Replicated Data Types (CvRDTs)
 
 **State-based**

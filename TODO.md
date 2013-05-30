@@ -22,6 +22,12 @@ Write docs for:
 * More background and concepts around CRDT, CAP and CALM
 * Explain difference between CvRDT and CmRDT
 
+## Query API
+
+Support in both Scala and REST API:
+
+* def keys(): Set[String]
+* def values(): Iterator[CRDT]
 
 ## CvRDTs (state-based)
 

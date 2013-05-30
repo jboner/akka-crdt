@@ -2,41 +2,33 @@
  * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
  */
 
-package akka.crdt.convergent
+package akka.crdt
 
-import com.typesafe.config.ConfigFactory
+import akka.crdt.convergent._
 import akka.actor._
 import scala.concurrent.{ Future, future, ExecutionContext }
 import scala.util.{ Success, Failure }
 import scala.util.control.NonFatal
-import play.api.libs.json.{ Json, JsValue }
-import Json.{ toJson, parse, stringify }
+import play.api.libs.json.Json
+import play.api.libs.json.Json.{ toJson, parse, stringify }
+import com.typesafe.config.ConfigFactory
 import unfiltered.Async
 import unfiltered.request._
 import unfiltered.response._
 import unfiltered.netty._
 import unfiltered.util._
-import QParams._
+import unfiltered.request.QParams._
 
 /**
- * Used to run as a main server in demos etc. Starts up on port 9000 on 0.0.0.0.
+ * Main REST server. Starts up on port 9000 on 0.0.0.0 by default. Configure it to run on other port and address.
  *
- * POST:
- * <pre>
- * 		curl -i -H "Accept: application/json" -X POST -d "node=darkstar" -d "delta=1" http://127.0.0.1:9000/g-counter/jonas
- * </pre>
- *
- * GET:
- * <pre>
- * 		curl -i -H "Accept: application/json" http://127.0.0.1:9000/g-counter/jonas
- * </pre>
+ * Run using ``sbt run -Dakka.crdt.rest-server.port=9999``
+ * or as a regular main class ``java -Dakka.crdt.rest-server.port=9999 -cp ... akka.crdt.RestServer``.
  */
-object DemoRestServer {
+object RestServer {
 
   def main(args: Array[String]): Unit = {
-
-    // FIXME make config configurable for RestServer - even if it is only for demo purposes, to be able to change ports, debug level etc.
-    val config = ConfigFactory.parseString("""
+    val config = ConfigFactory.defaultOverrides.withFallback(ConfigFactory.parseString("""
 			akka {
 				actor.provider = akka.cluster.ClusterActorRefProvider
 				loglevel       = INFO
@@ -55,20 +47,24 @@ object DemoRestServer {
 				  port     = 9000
 				}
 			}
-			""")
+			"""))
+
     val system = ActorSystem("crdt", config)
     val storage = ConvergentReplicatedDataTypeDatabase(system)
+
     println(s"""
-		=====================================================================================
-		★ ★ ★  CRDT Database Server listening on port: ${config.getInt("akka.crdt.rest-server.port")}. Press any key to exit...  ★ ★ ★
-		=====================================================================================""")
-    System.in.read()
-    storage.shutdown()
-    system.shutdown()
+		=======================================================================================
+		★ ★ ★  CRDT Database Server listening on port: ${config.getInt("akka.crdt.rest-server.port")}. Press Control-C to exit...  ★ ★ ★
+		=======================================================================================""")
+
+    Runtime.getRuntime.addShutdownHook(new Thread(new Runnable {
+      def run = {
+        storage.shutdown()
+        system.shutdown()
+      }
+    }))
   }
 }
-
-// FIXME Create a generic configurable server to run in Akka Microkernel
 
 /**
  * Rest server for CRDT storage.

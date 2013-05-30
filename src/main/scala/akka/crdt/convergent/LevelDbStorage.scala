@@ -103,7 +103,7 @@ class LevelDbStorage(
   }
 
   override def destroy(): Unit = {
-    log.info("Destroying LevelDB storage")
+    log.info("Destroying LevelDB storage(s)")
     databases foreach {
       case (filename, _) ⇒
         factory.destroy(new File(filename), new Options)
