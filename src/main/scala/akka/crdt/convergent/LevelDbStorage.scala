@@ -20,13 +20,13 @@ class LevelDbStorage(
   val settings: ConvergentReplicatedDataTypeSettings,
   log: LoggingAdapter) extends Storage { storage ⇒
 
-  final val path = settings.LevelDbStoragePath
-  final val filenamePrefix = s"$path/$nodename"
+  val path = settings.LevelDbStoragePath
+  val filenamePrefix = s"$path/$nodename"
 
-  final val useFsync: Boolean = settings.LevelDbUseFsync
-  final val verifyChecksums: Boolean = settings.LevelDbVerifyChecksums
-  final val useNative: Boolean = settings.LevelDbUseNative
-  final val cacheSize: Int = settings.LevelDbCacheSize
+  val useFsync: Boolean = settings.LevelDbUseFsync
+  val verifyChecksums: Boolean = settings.LevelDbVerifyChecksums
+  val useNative: Boolean = settings.LevelDbUseNative
+  val cacheSize: Int = settings.LevelDbCacheSize
 
   private val levelDbReadOptions: ReadOptions = new ReadOptions().verifyChecksums(verifyChecksums)
   private val levelDbWriteOptions: WriteOptions = new WriteOptions().sync(useFsync)

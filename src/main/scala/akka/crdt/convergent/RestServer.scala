@@ -4,13 +4,13 @@
 
 package akka.crdt.convergent
 
+import com.typesafe.config.ConfigFactory
 import akka.actor._
 import scala.concurrent.{ Future, future, ExecutionContext }
 import scala.util.{ Success, Failure }
 import scala.util.control.NonFatal
-import play.api.libs.json.Json.{ toJson, parse, stringify }
-import play.api.libs.json.JsValue
-import com.typesafe.config.ConfigFactory
+import play.api.libs.json.{ Json, JsValue }
+import Json.{ toJson, parse, stringify }
 import unfiltered.Async
 import unfiltered.request._
 import unfiltered.response._
@@ -79,8 +79,8 @@ object DemoRestServer {
 class RestServer(storage: ConvergentReplicatedDataTypeDatabase) {
   @volatile private var http: Option[Http] = None
 
-  final val hostname = storage.settings.RestServerHostname
-  final val port = storage.settings.RestServerPort
+  val hostname = storage.settings.RestServerHostname
+  val port = storage.settings.RestServerPort
 
   def start(): Unit = http = Some(Http(port, hostname).handler(new CvRDTPlan(storage)).start())
 
@@ -123,6 +123,13 @@ class CvRDTPlan(storage: ConvergentReplicatedDataTypeDatabase)
         // =================================================================
         case GET(Path("/ping")) ⇒
           req.respond(textResponse("pong"))
+
+        // =================================================================
+        // server nodes
+        // =================================================================
+        case GET(Path("/nodes")) ⇒
+          val nodes = storage.nodes map { node ⇒ Json.obj("host" -> node._1, "port" -> node._2) }
+          req.respond(textResponse(stringify(toJson(nodes))))
 
         // =================================================================
         // g-counter

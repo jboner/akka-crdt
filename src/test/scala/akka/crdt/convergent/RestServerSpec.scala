@@ -54,11 +54,24 @@ class RestServerSpec extends WordSpec with MustMatchers with BeforeAndAfterAll {
   "A CRDT REST server" must {
     import dispatch._, Defaults._
 
-    def newURL = host("127.0.0.1", 9000)
+    def newURL = host("127.0.0.1", 9000) // TODO: should use the config values
+
+    // =================================================================
+    // ping/pong
+    // =================================================================
 
     "serve unfiltered text" in {
       val result = Await.result(Http(newURL / "ping" OK as.String), timeout).trim()
       result must be("pong")
+    }
+
+    // =================================================================
+    // nodes
+    // =================================================================
+
+    "be able to return a list with (hostname, port) for all REST servers" in {
+      val result = Await.result(Http(newURL / "nodes" OK as.String), timeout).trim()
+      result must be("""[{"host":"127.0.0.1","port":9000}]""")
     }
 
     // =================================================================

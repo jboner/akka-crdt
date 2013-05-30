@@ -16,6 +16,8 @@ import scala.reflect.ClassTag
 import scala.collection.immutable
 import scala.concurrent.duration._
 import java.util.UUID
+import akka.cluster.ClusterEvent._
+import akka.cluster.Member
 
 object ConvergentReplicatedDataTypeDatabase
   extends ExtensionId[ConvergentReplicatedDataTypeDatabase]
@@ -55,11 +57,31 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
   private val publisher = system.actorOf(Props(classOf[Publisher], settings), name = "crdt:publisher")
   private val subscriber = system.actorOf(Props(classOf[Subscriber], storage), name = "crdt:subscriber")
 
+  // immutable read-view of the current snapshots of members
+  @volatile private var _members: immutable.SortedSet[Member] = immutable.SortedSet.empty[Member]
+
+  private val clusterListener = system.actorOf(Props(new Actor with ActorLogging {
+    def receive = {
+      case state: CurrentClusterState ⇒ _members = state.members
+      case MemberUp(member)           ⇒ _members = _members + member
+      case MemberRemoved(member)      ⇒ _members = _members - member
+      case _: ClusterDomainEvent      ⇒ // ignore
+    }
+  }), name = "crdt:clusterListener")
+
+  Cluster(system).subscribe(clusterListener, classOf[ClusterDomainEvent])
+
+  system.registerOnTermination(shutdown())
+
   private val restServer = if (settings.RestServerRun) {
     val rs = new RestServer(this)
     rs.start()
     Some(rs)
   } else None
+
+  // FIXME: Member has the right hostname but the wrong port (the cluster port) - replacing with configuration value, is this sufficient? 
+  def nodes: immutable.Seq[(String, Int)] =
+    _members.toVector map { _.address.host } collect { case Some(host) ⇒ (host, settings.RestServerPort) }
 
   def getOrCreate[T <: ConvergentReplicatedDataType: ClassTag](id: String = UUID.randomUUID.toString): Try[T] = Try {
     val clazz = implicitly[ClassTag[T]].runtimeClass
@@ -107,6 +129,7 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
     restServer foreach { _.shutdown() }
     system.stop(subscriber)
     system.stop(publisher)
+    system.stop(clusterListener)
     storage.destroy()
   }
 
