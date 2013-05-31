@@ -148,26 +148,32 @@ val json = nrOfUsers.view
 ##### GET
 Find g-counter by id, or create it if it does not exist.
 
-    curl -i -H "Accept: application/json" http://127.0.0.1:9000/g-counter/hits
+```bash
+curl -i -H "Accept: application/json" http://127.0.0.1:9000/g-counter/hits
+```
 
 Create a g-counter with a random id.
 
-    curl -i -H "Accept: application/json" http://127.0.0.1:9000/g-counter
+```bash
+curl -i -H "Accept: application/json" http://127.0.0.1:9000/g-counter
+```
 
 ##### POST
 Increment the g-counter with 'delta'
 
-    curl -i -H "Accept: application/json" \
-        -X POST -d "node=darkstar" -d "delta=1" \
-        http://127.0.0.1:9000/g-counter/hits
-        
+```bash
+curl -i -H "Accept: application/json" \
+    -X POST -d "node=darkstar" -d "delta=1" \
+    http://127.0.0.1:9000/g-counter/hits
+```
+
 ##### JSON View
 
 ```json
 {
-    'type': 'g-counter',
-    'id': 'hits',
-    'value': 1
+    "type": "g-counter",
+    "id": "hits",
+    "value": 1
 }
 ```
 
@@ -254,32 +260,40 @@ val json = nrOfUsers.view
 ##### GET
 Find pn-counter by id, or create it if it does not exist.
 
-    curl -i -H "Accept: application/json" http://127.0.0.1:9000/pn-counter/users
+```bash
+curl -i -H "Accept: application/json" http://127.0.0.1:9000/pn-counter/users
+```
 
 Create a pn-counter with a random id.
 
-    curl -i -H "Accept: application/json" http://127.0.0.1:9000/pn-counter
+```bash
+curl -i -H "Accept: application/json" http://127.0.0.1:9000/pn-counter
+```
 
 ##### POST
 Increment the pn-counter with 'delta' > 0
 
-    curl -i -H "Accept: application/json" \
-        -X POST -d "node=darkstar" -d "delta=1" \
-        http://127.0.0.1:9000/pn-counter/users
-        
+```bash
+curl -i -H "Accept: application/json" \
+    -X POST -d "node=darkstar" -d "delta=1" \
+    http://127.0.0.1:9000/pn-counter/users
+```
+
 Decrement the pn-counter with 'delta' < 0
 
-    curl -i -H "Accept: application/json" \
-        -X POST -d "node=darkstar" -d "delta=-1" \
-        http://127.0.0.1:9000/pn-counter/users
-        
+```bash
+curl -i -H "Accept: application/json" \
+    -X POST -d "node=darkstar" -d "delta=-1" \
+    http://127.0.0.1:9000/pn-counter/users
+```
+
 ##### JSON View
 
 ```json
 {
-    'type': 'pn-counter',
-    'id': 'active-users',
-    'value': 1
+    "type": "pn-counter",
+    "id": "users",
+    "value": 1
 }
 ```
 
@@ -350,31 +364,37 @@ val json = users.view
 ##### GET
 Find g-set by id, or create it if it does not exist.
 
-    curl -i -H "Accept: application/json" http://127.0.0.1:9000/g-set/users
+```bash
+curl -i -H "Accept: application/json" http://127.0.0.1:9000/g-set/users
+```
 
 Create a g-set with a random id.
 
-    curl -i -H "Accept: application/json" http://127.0.0.1:9000/g-set
+```bash
+curl -i -H "Accept: application/json" http://127.0.0.1:9000/g-set
+```
 
 ##### POST
 Add JSON data to the g-set.
 
-    curl -i -H "Accept: application/json" \
-        -X POST -d "node=darkstar" -d "{"username":"john","password":"coltrane"}" \
-        http://127.0.0.1:9000/g-set/users/add
-        
+```bash
+curl -i -H "Accept: application/json" \
+    -X POST -d "node=darkstar" -d "{"username":"john","password":"coltrane"}" \
+    http://127.0.0.1:9000/g-set/users/add
+```
+
 ##### JSON View
 
 ```json
 {
-    'type': 'g-set',
-    'id': 'users',
-    'value': [{
-            'username': 'john',
-            'password': 'coltrane'
+    "type": "g-set",
+    "id": "users",
+    "value": [{
+            "username": "john",
+            "password": "coltrane"
         }, {
-            'username': 'sonny',
-            'password': 'rollins'
+            "username": "charlie",
+            "password": "parker"
         }
     ]
 }
@@ -387,12 +407,12 @@ This is the internal representation of a ``g-set``:
 {
     "type": "g-set",
     "id": "users",
-    "state": [{
+    "value": [{
             "username": "john",
             "password": "coltrane"
         }, {
-            "username": "sonny",
-            "password": "rollins"
+            "username": "charlie",
+            "password": "parker"
         }
     ]
 }
@@ -446,37 +466,45 @@ val json = users.view
 ##### GET
 Find 2p-set by id, or create it if it does not exist.
 
-    curl -i -H "Accept: application/json" http://127.0.0.1:9000/2p-set/users
+```bash
+curl -i -H "Accept: application/json" http://127.0.0.1:9000/2p-set/users
+```
 
 Create a 2p-set with a random id.
 
-    curl -i -H "Accept: application/json" http://127.0.0.1:9000/2p-set
+```bash
+curl -i -H "Accept: application/json" http://127.0.0.1:9000/2p-set
+```
 
 ##### POST
 Add JSON data to the 2p-set.
 
-    curl -i -H "Accept: application/json" \
-        -X POST -d "node=darkstar" -d "{"username":"john","password":"coltrane"}" \
-        http://127.0.0.1:9000/2p-set/users/add
-        
+```bash
+curl -i -H "Accept: application/json" \
+    -X POST -d "node=darkstar" -d "{"username":"john","password":"coltrane"}" \
+    http://127.0.0.1:9000/2p-set/users/add
+```
+
 Remove JSON data from the 2p-set.
 
-    curl -i -H "Accept: application/json" \
-        -X POST -d "node=darkstar" -d "{"username":"john","password":"coltrane"}" \
-        http://127.0.0.1:9000/2p-set/users/remove
+```bash
+curl -i -H "Accept: application/json" \
+    -X POST -d "node=darkstar" -d "{"username":"john","password":"coltrane"}" \
+    http://127.0.0.1:9000/2p-set/users/remove
+```
         
 ##### JSON View
 
 ```json
 {
-    'type': '2p-set',
-    'id': 'users',
-    'value': [{
-            'username': 'john',
-            'password': 'coltrane'
+    "type": "2p-set",
+    "id": "users",
+    "value": [{
+            "username": "john",
+            "password": "coltrane"
         }, {
-            'username': 'charlie',
-            'password': 'parker'
+            "username": "charlie",
+            "password": "parker"
         }
     ]
 }
@@ -542,7 +570,7 @@ val listener = system.actorOf(Props(new Actor {
 
 This is the configuration where you can configure the REST server, backend storage systems etc. 
 
-```json
+```ruby
 akka {
   crdt {
     rest-server {
