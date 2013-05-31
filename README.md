@@ -1,8 +1,17 @@
 # Akka CRDT
 
-**Server-managed CRDT storage for Akka.**
+**Server-managed CRDT database.**
+
+## Introduction
+
+The goal of this project is to provide a server-managed CRDT database build on top of Akka Cluster. We plan to implement most of the known CRDTs, both CvRDTs and CmRDTs (see below for the difference). It is meant to be used both from within an Akka application and as a stand-alone REST service speaking JSON.
 
 A full outline of what CRDTs are all about is out of scope for this documentation. For good introduction to the subject read the excellent paper [A comprehensive study of Convergent and Commutative Replicated Data Types](http://hal.upmc.fr/docs/00/55/55/88/PDF/techreport.pdf) by Mark Shapiro et. al. 
+
+----
+**NOTE**: This is __work in progress__ and is currently to be treated as a Proof of Concept. Apart from hardening and bug fixing etc. you can find some of the outstanding issues in the ``TODO.md`` file in the project root directory. If you find this project interesting please join us and help out. 
+
+----
 
 ## Architecture Overview
 
@@ -17,13 +26,13 @@ There are two different implementations:
 
 ### CvRDTs
 
-CvRDTs are _state-based_ and do not require a fully reliable broadcast since every instance keeps the full history and is therefore self-contained and fault-tolerant by design. The implementation is based on Akka Cluster's Publish Subscribe, which is very efficient, have high-throughput and low latency, but is not reliable. In the CvRDT implementation the change sets are batched up (using a configurable batching window - default is 10 ms) and replicated out to the rest of the cluster nodes in an eventually consistent fashion. The eventual consistent nature of the system means that there will be a slight delay in the consistency between the nodes, however, the system guarantees that you read your writes if you talk to a single cluster node. 
+CvRDTs (Convergent Replicated Data Types) are _state-based_ and do not require a fully reliable broadcast since every instance keeps the full history and is therefore self-contained and fault-tolerant by design. The implementation is based on Akka Cluster's Publish Subscribe, which is very efficient, have high-throughput and low latency, but is not reliable. In the CvRDT implementation the change sets are batched up (using a configurable batching window - default is 10 ms) and replicated out to the rest of the cluster nodes in an eventually consistent fashion. The eventual consistent nature of the system means that there will be a slight delay in the consistency between the nodes, however, the system guarantees that you read your writes if you talk to a single cluster node. 
 
 ### CmRDTs
 
 **Not implemented yet** 
 
-CmRDT are _operations-based_ and do require a fully reliable broadcast since only the events are stored and a CmRDT is brought up to its current state by replaying the event log. This implementation is based on a persistent transaction log realised through the [eventsourced](https://github.com/eligosource/eventsourced) library.
+CmRDT (Commutative Replicated Data Types) are _operations-based_ and do require a fully reliable broadcast since only the events are stored and a CmRDT is brought up to its current state by replaying the event log. This implementation is based on a persistent transaction log realised through the [eventsourced](https://github.com/eligosource/eventsourced) library.
 
 ## Standalone REST Server
 
@@ -434,6 +443,22 @@ This is the internal representation of a ``2p-set``:
 **Operations-based**
 
 To be implemented. 
+
+## Subscribe To Updated CRDTs
+
+All changes (newly merged CRDTs) are published to [Akka Event Bus](http://doc.akka.io/docs/akka/snapshot/scala/event-bus.html). If you are interested in getting these events you can just subscribe to them. Here is an example:
+
+	  val listener = system.actorOf(Props(new Actor {
+	    override def preStart(): Unit =
+	      context.system.eventStream.subscribe(self, classOf[ConvergentReplicatedDataType])
+	    override def postStop(): Unit =
+	      context.system.eventStream.unsubscribe(self)
+	
+	    def receive = {
+	      case updated: ConvergentReplicatedDataType ⇒ …
+	    }
+	  }))
+
 
 ## Configuration 
 
