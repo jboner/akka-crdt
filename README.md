@@ -92,6 +92,7 @@ CvRDT descriptions below are taken from the [MeanGirls](https://github.com/aphyr
 
 A nice property of CRDTs is that a data structure made up by CRDTs is also a CRDT. Which lets you create rich data structures from simple ones. 
 
+
 ### G-Counter
 
 #### High-Level Description
@@ -108,7 +109,7 @@ counts.
 Create a ``g-counter`` in Scala: 
 
 ```scala
-val nrOfUsers: GCounter = GCounter(id = "users")
+val nrOfUsers: GCounter = storage.getOrCreate[GCounter]("users")
 ```
 
 Increment the counter by 1: 
@@ -137,7 +138,7 @@ Merge two counters:
 val mergedCounter: GCounter = thisCounter merge thatCounter
 ```
 
-Get view of the counter: 
+Get the view (the current value) of the counter: 
 
 ```scala
 val nrOfUsersView: GCounterView = nrOfUsers.view
@@ -147,6 +148,16 @@ Get JSON of the view:
 
 ```scala
 val json: JsValue = nrOfUsersView.toJson
+
+val jsonAsString: String = nrOfUsersView.toString
+```
+
+Get JSON of the counter (internal serialized representation): 
+
+```scala
+val json: JsValue = nrOfUsers.toJson
+
+val jsonAsString: String = nrOfUsers.toString
 ```
 
 #### REST API
@@ -155,7 +166,7 @@ val json: JsValue = nrOfUsersView.toJson
 Find g-counter by id, or create it if it does not exist.
 
 ```bash
-curl -i -H "Accept: application/json" http://127.0.0.1:9000/g-counter/hits
+curl -i -H "Accept: application/json" http://127.0.0.1:9000/g-counter/users
 ```
 
 Create a g-counter with a random id.
@@ -170,7 +181,7 @@ Increment the g-counter with 'delta'
 ```bash
 curl -i -H "Accept: application/json" \
     -X POST -d "node=darkstar" -d "delta=1" \
-    http://127.0.0.1:9000/g-counter/hits
+    http://127.0.0.1:9000/g-counter/users
 ```
 
 ##### JSON View
@@ -178,18 +189,19 @@ curl -i -H "Accept: application/json" \
 ```json
 {
     "type": "g-counter",
-    "id": "hits",
+    "id": "users",
     "value": 1
 }
 ```
 
 #### Serialization Format
+
 This is the internal representation of a ``g-counter``:
 
 ```json
 {
     "type": "g-counter",
-    "id": "hits",
+    "id": "users",
     "state": {
         "node1": 2,
         "node2": 3
@@ -212,7 +224,7 @@ the value of the N counter.
 Create a ``pn-counter`` in Scala: 
 
 ```scala
-val nrOfUsers = PNCounter(id = "users")
+val nrOfUsers = storage.getOrCreate[PNCounter]("users")
 ```
 
 Increment the counter by 1: 
@@ -255,7 +267,7 @@ Merge two counters:
 val mergedCounter: PNCounter = thisCounter merge thatCounter
 ```
 
-Get view of the counter: 
+Get the view (the current value) of the counter: 
 
 ```scala
 val nrOfUsersView: PNCounterView = nrOfUsers.view
@@ -265,6 +277,16 @@ Get JSON of the view:
 
 ```scala
 val json: JsValue = nrOfUsersView.toJson
+
+val jsonAsString: String = nrOfUsersView.toString
+```
+
+Get JSON of the counter (internal serialized representation): 
+
+```scala
+val json: JsValue = nrOfUsers.toJson
+
+val jsonAsString: String = nrOfUsers.toString
 ```
 
 #### REST API
@@ -341,20 +363,21 @@ This is the internal representation of a ``pn-counter``:
 
 Set union is commutative and convergent; hence it is always safe to have 
 simultaneous writes to a set *which only allows addition*. You cannot 
-remove an element of a ``g-set``.
+remove an element of a ``g-set``. A ``GSet`` can only contain JSON values 
+of type ``JsValue`` (play-json).
 
 #### Scala API
 
 Create a ``g-set`` in Scala: 
 
 ```scala
-val users = GSet(id = "users")
+val users: GSet = storage.getOrCreate[GSet]("users")
 ```
 
 Add JSON element to the set: 
 
 ```scala
-val user = Json.parse("""{"username":"john","password":"coltrane"}""")
+val user: JsValue = Json.parse("""{"username":"john","password":"coltrane"}""")
     
 val updatedUsers: GSet = users + user
 ```
@@ -371,7 +394,7 @@ Merge two sets:
 val mergedSet: GSet = thisSet merge thatSet
 ```
 
-Get view of the set: 
+Get the view (the current value) of the set: 
 
 ```scala
 val usersView: GSetView = users.view
@@ -381,6 +404,25 @@ Get JSON of the view:
 
 ```scala
 val json: JsValue = usersView.toJson
+
+val jsonAsString: String = usersView.toString
+```
+
+Other methods on ``GSet``: 
+
+```scala
+def contains(element: JsValue): Boolean
+def foreach(f: JsValue ⇒ Unit): Unit
+def isEmpty: Boolean
+def size: Int
+```
+
+Get JSON of the set (internal serialized representation): 
+
+```scala
+val json: JsValue = users.toJson
+
+val jsonAsString: String = users.toString
 ```
 
 #### REST API
@@ -450,19 +492,20 @@ This is the internal representation of a ``g-set``:
 To add an element, add it to the add set A. To remove e, add e to the remove 
 set R.  An element can only be added once, and only removed once. Elements can 
 only be removed if they are present in the set. Removes take precedence over adds.
+A ``TwoPhaseSet`` can only contain JSON values of type ``JsValue`` (play-json).
 
 #### Scala API
 
 Create a ``2p-set`` in Scala: 
 
 ```scala
-val users = TwoPhaseSet(id = "users")
+val users: TwoPhaseSet = storage.getOrCreate[TwoPhaseSet]("users")
 ```
 
 Add JSON element to the set: 
 
 ```scala
-val user = Json.parse("""{"username":"john","password":"coltrane"}""")
+val user: JsValue = Json.parse("""{"username":"john","password":"coltrane"}""")
     
 val updatedUsers: TwoPhaseSet = users + user
 ```
@@ -485,7 +528,7 @@ Merge two sets:
 val mergedSet: TwoPhaseSet = thisSet merge thatSet
 ```
 
-Get view of the set: 
+Get the view (the current value) of the set: 
 
 ```scala
 val usersView: TwoPhaseSetView = users.view
@@ -495,6 +538,31 @@ Get JSON of the view:
 
 ```scala
 val json: JsValue = usersView.toJson
+```
+
+Get JSON of the view: 
+
+```scala
+val json: JsValue = usersView.toJson
+
+val jsonAsString: String = usersView.toString
+```
+
+Other methods on ``TwoPhaseSet``: 
+
+```scala
+def contains(element: JsValue): Boolean
+def foreach(f: JsValue ⇒ Unit): Unit
+def isEmpty: Boolean
+def size: Int
+```
+
+Get JSON of the set (internal serialized representation): 
+
+```scala
+val json: JsValue = users.toJson
+
+val jsonAsString: String = users.toString
 ```
 
 #### REST API
