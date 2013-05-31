@@ -22,12 +22,13 @@ object BroadcastClusterSpecConfig extends MultiNodeConfig {
   val node3 = role("node3")
 
   commonConfig(ConfigFactory.parseString("""
-    akka.actor.provider = akka.cluster.ClusterActorRefProvider
+    akka.crdt.convergent.leveldb.destroy-on-shutdown = on
+  	akka.actor.provider = akka.cluster.ClusterActorRefProvider
     akka.cluster.auto-join = off
     akka.cluster.auto-down = on
     akka.loggers = ["akka.testkit.TestEventListener"]
     akka.loglevel = INFO
-    akka.remote.log-remote-lifecycle-events = off"""))
+    akka.remote.log-remote-lifecycle-events = off""")) 
 }
 
 class BroadcastClusterSpecMultiJvmNode1 extends BroadcastClusterSpec

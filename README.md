@@ -25,18 +25,17 @@ CvRDTs are _state-based_ and do not require a fully reliable broadcast since eve
 
 CmRDT are _operations-based_ and do require a fully reliable broadcast since only the events are stored and a CmRDT is brought up to its current state by replaying the event log. This implementation is based on a persistent transaction log realised through the [eventsourced](https://github.com/eligosource/eventsourced) library.
 
-## REST Server
+## Standalone REST Server
 
 You can run the REST server in two different ways. 
 
-1. Run it in stand-alone mode from the command line. Here you run it by invoking ``sbt run`` in the project root directory. You configure it through JVM options, which will override the default configuration values. Example: ``sbt run -Dakka.crdt.rest-server.port=9999``
+1. Run it in stand-alone mode from the command line. Here you run it by invoking ``sbt run`` in the project root directory. You configure it through JVM options, which will override the default configuration values. Example: ``sbt run -Dakka.crdt.rest-server.port=9999``. You shut down the server by invoking ``Control-C`` which cleans up all resources and by default this destroys the LevelDB database (deletes the files), if you don't want this behaviour then start it up with ``-Dakka.crdt.convergent.leveldb.destroy-on-shutdown=off``.
 
-2. Embedded in an Akka application. Just create the extension using ``val storage = ConvergentReplicatedDataTypeDatabase(system)`` and off you go. The REST server will be started automatically if the ``akka.crdt.rest-server.run`` is set to ``on``.
-
+2. Embedded in an Akka application (see the 'Embedded Server' section below for details). To do this just create the extension using ``val storage = ConvergentReplicatedDataTypeDatabase(system)`` and off you go. The REST server will be started automatically if the ``akka.crdt.rest-server.run`` is set to ``on``. 
 
 Each CRDT has a read-only JSON view representation which is used in the REST API for querying data. For details on the REST API and the different JSON views see the section with the different CRDT descriptions below. 
 
-## Scala Server API
+## Embedded Server
 
 You can create the ``ConvergentReplicatedDataTypeDatabase`` Extension like this (from within an actor): 
 
@@ -57,6 +56,14 @@ Store the updated CRDT:
 Shut down the database:
 
     storage.shutdown()
+    
+## LevelDB
+
+[LevelDB](http://code.google.com/p/leveldb/) is the default storage engine, you can configure it to look for a native installation and fall back to a Java port, or it will use the Java port directly. See the configuration file options for details on this and other config options. 
+
+Each node has its own LevelDB database (one physical database is created per CRDT type). The database files are stored by default stored in the ``leveldb`` directory in the root directory of the server, this is configurable. The name of the database files needs to be unique on the machine you are running it on and is now prefixed with the hostname and port of the Akka Cluster node. Please note that if you don't specify the cluster port in the configuration file then a random one is chosen, which means that you will not be able to read in the same database between system restarts. Therefore, if this is important to you, you have to specify the cluster port explicitly in the configuration file or as JVM option when you boot up the system. 
+    
+You can configure if the LevelDB database should be destroyed on node shutdown through the ``akka.crdt.convergent.leveldb.destroy-on-shutdown`` option.
     
 ## Convergent Replicated Data Types (CvRDTs)
 
@@ -125,9 +132,9 @@ Increment the g-counter with 'delta'
         
 ##### JSON View
     {
-      'type': 'g-counter',
-      'id': 'hits',
-      'value': 1
+        'type': 'g-counter',
+        'id': 'hits',
+        'value': 1
     }
 
 #### Serialization Format
@@ -216,9 +223,9 @@ Decrement the pn-counter with 'delta' < 0
         
 ##### JSON View
     {
-      'type': 'pn-counter',
-      'id': 'active-users',
-      'value': 1
+        'type': 'pn-counter',
+        'id': 'active-users',
+        'value': 1
     }
 
 #### Serialization Format
@@ -293,11 +300,17 @@ Add JSON data to the g-set.
         
 ##### JSON View
     {
-      'type': 'g-set',
-      'id' : 'users',      
-      'value': [{'username': 'john','password': 'coltrane'}]
+        'type': 'g-set',
+        'id': 'users',
+        'value': [{
+                'username': 'john',
+                'password': 'coltrane'
+            }, {
+                'username': 'sonny',
+                'password': 'rollins'
+            }
+        ]
     }
-
 #### Serialization Format
 This is the internal representation of a ``g-set``:
 
@@ -373,11 +386,18 @@ Remove JSON data from the 2p-set.
         
 ##### JSON View
     {
-      'type': '2p-set',
-      'id' : 'users',      
-      'value': [{'username': 'john','password': 'coltrane'}]
+        'type': '2p-set',
+        'id': 'users',
+        'value': [{
+                'username': 'john',
+                'password': 'coltrane'
+            }, {
+                'username': 'charlie',
+                'password': 'parker'
+            }
+        ]
     }
-
+    
 #### Serialization Format
 This is the internal representation of a ``2p-set``:
 
@@ -435,12 +455,14 @@ This is the configuration where you can configure the REST server, backend stora
           # if native version is found that it is used - 
           # else it falls back to Java port of LevelDB    
           leveldb {                       
-            storage-path     = "./leveldb"  # directory for the database storage files  
-            use-fsync        = off          # use fsync on write
-            verify-checksums = off          # verify checksums on write
-            use-native       = off          # try to find native LevelDB, if not 
-                                            # found then Java port will be used
-            cache-size       = 104857600    # max size of the in-memory cache
+            storage-path         = "./leveldb"  # directory for the database storage files  
+            destroy-on-shutdown  = off          # deletes the database files for the 
+                                                # specific node on shutdown 
+            use-fsync            = off          # use fsync on write
+            verify-checksums     = off          # verify checksums on write
+            use-native           = off          # try to find native LevelDB, if not 
+                                                # found then Java port will be used
+            cache-size           = 104857600    # max size of the in-memory cache
           }
         }
         commutative {

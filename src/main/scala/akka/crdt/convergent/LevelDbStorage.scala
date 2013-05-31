@@ -24,6 +24,7 @@ class LevelDbStorage(
   val filenamePrefix = s"$path/$nodename"
 
   val useFsync: Boolean = settings.LevelDbUseFsync
+  val destroyOnShutdown: Boolean = settings.LevelDbDestroyOnShutdown
   val verifyChecksums: Boolean = settings.LevelDbVerifyChecksums
   val useNative: Boolean = settings.LevelDbUseNative
   val cacheSize: Int = settings.LevelDbCacheSize
@@ -102,7 +103,7 @@ class LevelDbStorage(
     databases foreach { case (_, db) ⇒ db.close() }
   }
 
-  override def destroy(): Unit = {
+  override def destroy(): Unit = if (destroyOnShutdown) {
     log.info("Destroying LevelDB storage(s)")
     databases foreach {
       case (filename, _) ⇒

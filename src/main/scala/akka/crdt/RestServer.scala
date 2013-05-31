@@ -46,6 +46,7 @@ object RestServer {
 	  			hostname = "0.0.0.0"
 				  port     = 9000
 				}
+    		crdt.convergent.leveldb.destroy-on-shutdown  = on 
 			}
 			"""))
 

@@ -23,6 +23,7 @@ object PNCounterClusterSpecConfig extends MultiNodeConfig {
   val node3 = role("node3")
 
   commonConfig(ConfigFactory.parseString("""
+    akka.crdt.convergent.leveldb.destroy-on-shutdown = on
     akka.actor.provider = akka.cluster.ClusterActorRefProvider
     akka.cluster.auto-join = off
     akka.cluster.auto-down = on

@@ -24,6 +24,7 @@ import play.api.libs.json.Json._
 class ChangeListenerSpec
   extends TestKit(ActorSystem("ChangeListenerSpec", ConfigFactory.parseString("""
 		akka {
+  		crdt.convergent.leveldb.destroy-on-shutdown = on
 			actor.provider = akka.cluster.ClusterActorRefProvider
 			loglevel = INFO
 			loggers = ["akka.testkit.TestEventListener"]

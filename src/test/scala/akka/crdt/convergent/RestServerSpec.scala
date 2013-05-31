@@ -39,6 +39,7 @@ class RestServerSpec extends WordSpec with MustMatchers with BeforeAndAfterAll {
   			hostname = "127.0.0.1"
 			  port     = 9000
 			}
+  		crdt.convergent.leveldb.destroy-on-shutdown  = on 
 		}
 		"""))
 

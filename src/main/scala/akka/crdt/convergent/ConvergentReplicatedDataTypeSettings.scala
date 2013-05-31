@@ -27,6 +27,7 @@ class ConvergentReplicatedDataTypeSettings(val config: Config, val name: String)
 
   // leveldb
   val LevelDbStoragePath: String = getString("akka.crdt.convergent.leveldb.storage-path")
+  val LevelDbDestroyOnShutdown: Boolean = getBoolean("akka.crdt.convergent.leveldb.destroy-on-shutdown")
   val LevelDbUseFsync: Boolean = getBoolean("akka.crdt.convergent.leveldb.use-fsync")
   val LevelDbVerifyChecksums: Boolean = getBoolean("akka.crdt.convergent.leveldb.verify-checksums")
   val LevelDbUseNative: Boolean = getBoolean("akka.crdt.convergent.leveldb.use-native")
