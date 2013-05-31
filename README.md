@@ -48,23 +48,33 @@ Each CRDT has a read-only JSON view representation which is used in the REST API
 
 You can create the ``ConvergentReplicatedDataTypeDatabase`` Extension like this (from within an actor): 
 
-    val storage = ConvergentReplicatedDataTypeDatabase(context.system)
+```scala
+val storage = ConvergentReplicatedDataTypeDatabase(context.system)
+```
 
 Get (or create a new) CRDT by id:
 
-    val nrOfUsers = storage.getOrCreate[GCounter]("users")
+```scala
+val nrOfUsers = storage.getOrCreate[GCounter]("users")
+```
 
 Create a new CRDT with a random id:
 
-    val nrOfUsers = storage.getOrCreate[GCounter]
+```scala
+val nrOfUsers = storage.getOrCreate[GCounter]
+```
 
 Store the updated CRDT:
 
-    storage update updatedNrOfUsers
+```scala
+storage update updatedNrOfUsers
+```
 
 Shut down the database:
 
-    storage.shutdown()
+```scala
+storage.shutdown()
+```
     
 ## LevelDB
 
@@ -97,29 +107,41 @@ counts.
 
 Create a ``g-counter`` in Scala: 
 
-    val nrOfUsers = GCounter(id = "users")
+```scala
+val nrOfUsers = GCounter(id = "users")
+```
 
 Increment the counter by 1: 
 
-    val nodeId = "some-unique-node-id"
+```scala
+val nodeId = "some-unique-node-id"
     
-    val updatedNrOfUsers = nrOfUsers + nodeId
+val updatedNrOfUsers = nrOfUsers + nodeId
+```
 
 Increment the counter with a delta: 
 
-    val updatedNrOfUsers = nrOfUsers + (nodeId, 5)
+```scala
+val updatedNrOfUsers = nrOfUsers + (nodeId, 5)
+```
 
 Get the value of the counter: 
 
-    val count = nrOfUsers.value
+```scala
+val count = nrOfUsers.value
+```
 
 Merge two counters: 
 
-    val mergedCounter = thisCounter merge thatCounter
+```scala
+val mergedCounter = thisCounter merge thatCounter
+```
 
 Get JSON view of the counter: 
 
-    val json = nrOfUsers.view
+```scala
+val json = nrOfUsers.view
+```
 
 #### REST API
 
@@ -140,23 +162,28 @@ Increment the g-counter with 'delta'
         http://127.0.0.1:9000/g-counter/hits
         
 ##### JSON View
-    {
-        'type': 'g-counter',
-        'id': 'hits',
-        'value': 1
-    }
+
+```json
+{
+    'type': 'g-counter',
+    'id': 'hits',
+    'value': 1
+}
+```
 
 #### Serialization Format
 This is the internal representation of a ``g-counter``:
 
-    {
-        "type": "g-counter",
-        "id": "hits",
-        "state": {
-            "node1": 2,
-            "node2": 3
-        }
+```json
+{
+    "type": "g-counter",
+    "id": "hits",
+    "state": {
+        "node1": 2,
+        "node2": 3
     }
+}
+```
 
 ### PN-Counter
 
@@ -172,39 +199,55 @@ the value of the N counter.
 
 Create a ``pn-counter`` in Scala: 
 
-    val nrOfUsers = PNCounter(id = "users")
+```scala
+val nrOfUsers = PNCounter(id = "users")
+```
 
 Increment the counter by 1: 
 
-    val nodeId = "some-unique-node-id"
+```scala
+val nodeId = "some-unique-node-id"
     
-    val updatedNrOfUsers = nrOfUsers + nodeId
+val updatedNrOfUsers = nrOfUsers + nodeId
+```
 
 Decrement the counter by 1: 
 
-    val nodeId = "some-unique-node-id"
+```scala
+val nodeId = "some-unique-node-id"
     
-    val updatedNrOfUsers = nrOfUsers - nodeId
+val updatedNrOfUsers = nrOfUsers - nodeId
+```
 
 Increment the counter with a delta: 
 
-    val updatedNrOfUsers = nrOfUsers + (nodeId, 5)
+```scala
+val updatedNrOfUsers = nrOfUsers + (nodeId, 5)
+```
 
 Decrement the counter with a delta: 
 
-    val updatedNrOfUsers = nrOfUsers - (nodeId, 7)
+```scala
+val updatedNrOfUsers = nrOfUsers - (nodeId, 7)
+```
 
 Get the value of the counter: 
 
-    val count = nrOfUsers.value
+```scala
+val count = nrOfUsers.value
+```
 
 Merge two counters: 
 
-    val mergedCounter = thisCounter merge thatCounter
+```scala
+val mergedCounter = thisCounter merge thatCounter
+```
 
 Get JSON view of the counter: 
 
-    val json = nrOfUsers.view
+```scala
+val json = nrOfUsers.view
+```
 
 #### REST API
 
@@ -231,35 +274,40 @@ Decrement the pn-counter with 'delta' < 0
         http://127.0.0.1:9000/pn-counter/users
         
 ##### JSON View
-    {
-        'type': 'pn-counter',
-        'id': 'active-users',
-        'value': 1
-    }
+
+```json
+{
+    'type': 'pn-counter',
+    'id': 'active-users',
+    'value': 1
+}
+```
 
 #### Serialization Format
 This is the internal representation of a ``pn-counter``:
 
-    {
-        "type": "pn-counter",
-        "id": "users",
-        "increments": {
-            "type": "g-counter",
-            "id": "users/inc",
-            "state": {
-                "node1": 3,
-                "node2": 6
-            }
-        },
-        "decrements": {
-            "type": "g-counter",
-            "id": "users/dec",
-            "state": {
-                "node1": 2,
-                "node2": 2
-            }
+```json
+{
+    "type": "pn-counter",
+    "id": "users",
+    "increments": {
+        "type": "g-counter",
+        "id": "users/inc",
+        "state": {
+            "node1": 3,
+            "node2": 6
+        }
+    },
+    "decrements": {
+        "type": "g-counter",
+        "id": "users/dec",
+        "state": {
+            "node1": 2,
+            "node2": 2
         }
     }
+}
+```
         
 ### G-Set
 
@@ -273,21 +321,29 @@ remove an element of a ``g-set``.
 
 Create a ``g-set`` in Scala: 
 
-    val users = GSet(id = "users")
+```scala
+val users = GSet(id = "users")
+```
 
 Add JSON element to the set: 
 
-    val user = Json.parse("""{"username":"john","password":"coltrane"}""")
+```scala
+val user = Json.parse("""{"username":"john","password":"coltrane"}""")
     
-    val updatedUsers = users + user
+val updatedUsers = users + user
+```
 
 Merge two sets: 
 
-    val mergedSet = thisSet merge thatSet
+```scala
+val mergedSet = thisSet merge thatSet
+```
 
 Get JSON view of the set: 
 
-    val json = users.view
+```scala
+val json = users.view
+```
 
 #### REST API
 
@@ -308,33 +364,39 @@ Add JSON data to the g-set.
         http://127.0.0.1:9000/g-set/users/add
         
 ##### JSON View
-    {
-        'type': 'g-set',
-        'id': 'users',
-        'value': [{
-                'username': 'john',
-                'password': 'coltrane'
-            }, {
-                'username': 'sonny',
-                'password': 'rollins'
-            }
-        ]
-    }
+
+```json
+{
+    'type': 'g-set',
+    'id': 'users',
+    'value': [{
+            'username': 'john',
+            'password': 'coltrane'
+        }, {
+            'username': 'sonny',
+            'password': 'rollins'
+        }
+    ]
+}
+```
+
 #### Serialization Format
 This is the internal representation of a ``g-set``:
 
-    {
-        "type": "g-set",
-        "id": "users",
-        "state": [{
-                "username": "john",
-                "password": "coltrane"
-            }, {
-                "username": "sonny",
-                "password": "rollins"
-            }
-        ]
-    }
+```json
+{
+    "type": "g-set",
+    "id": "users",
+    "state": [{
+            "username": "john",
+            "password": "coltrane"
+        }, {
+            "username": "sonny",
+            "password": "rollins"
+        }
+    ]
+}
+```
     
 ### 2P-Set
 
@@ -349,25 +411,35 @@ only be removed if they are present in the set. Removes take precedence over add
 
 Create a ``2p-set`` in Scala: 
 
-    val users = TwoPhaseSet(id = "users")
+```scala
+val users = TwoPhaseSet(id = "users")
+```
 
 Add JSON element to the set: 
 
-    val user = Json.parse("""{"username":"john","password":"coltrane"}""")
+```scala
+val user = Json.parse("""{"username":"john","password":"coltrane"}""")
     
-    val updatedUsers = users + user
+val updatedUsers = users + user
+```
 
 Remove a JSON element from the set: 
 
-    val updatedUsers = users - user
+```scala
+val updatedUsers = users - user
+```
 
 Merge two sets: 
 
-    val mergedSet = thisSet merge thatSet
+```scala
+val mergedSet = thisSet merge thatSet
+```
 
 Get JSON view of the set: 
 
-    val json = users.view
+```scala
+val json = users.view
+```
 
 #### REST API
 
@@ -394,50 +466,55 @@ Remove JSON data from the 2p-set.
         http://127.0.0.1:9000/2p-set/users/remove
         
 ##### JSON View
-    {
-        'type': '2p-set',
-        'id': 'users',
-        'value': [{
-                'username': 'john',
-                'password': 'coltrane'
-            }, {
-                'username': 'charlie',
-                'password': 'parker'
-            }
-        ]
-    }
+
+```json
+{
+    'type': '2p-set',
+    'id': 'users',
+    'value': [{
+            'username': 'john',
+            'password': 'coltrane'
+        }, {
+            'username': 'charlie',
+            'password': 'parker'
+        }
+    ]
+}
+```
     
 #### Serialization Format
 This is the internal representation of a ``2p-set``:
 
-    {
-        "type": "2p-set",
-        "id": "users",
-        "adds": {
-            "type": "g-set",
-            "id": "users/adds",
-            "state": [{
-                    "username": "john",
-                    "password": "coltrane"
-                }, {
-                    "username": "sonny",
-                    "password": "rollins"
-                }, {
-                    "username": "charlie",
-                    "password": "parker"
-                }
-            ]
-        },
-        "removes": {
-            "type": "g-set",
-            "id": "users/removes",
-            "state": [{
-                    "username": "sonny",
-                    "password": "rollins"
-                }
-            ]
-        }
-    }    
+```json
+{
+    "type": "2p-set",
+    "id": "users",
+    "adds": {
+        "type": "g-set",
+        "id": "users/adds",
+        "state": [{
+                "username": "john",
+                "password": "coltrane"
+            }, {
+                "username": "sonny",
+                "password": "rollins"
+            }, {
+                "username": "charlie",
+                "password": "parker"
+            }
+        ]
+    },
+    "removes": {
+        "type": "g-set",
+        "id": "users/removes",
+        "state": [{
+                "username": "sonny",
+                "password": "rollins"
+            }
+        ]
+    }
+}    
+```
 
 ## Commutative Replicated Data Types (CmRDTs)
 **Operations-based**
@@ -448,50 +525,52 @@ To be implemented.
 
 All changes (newly merged CRDTs) are published to [Akka Event Bus](http://doc.akka.io/docs/akka/snapshot/scala/event-bus.html). If you are interested in getting these events you can just subscribe to them. Here is an example:
 
-	  val listener = system.actorOf(Props(new Actor {
-	    override def preStart(): Unit =
-	      context.system.eventStream.subscribe(self, classOf[ConvergentReplicatedDataType])
-	    override def postStop(): Unit =
-	      context.system.eventStream.unsubscribe(self)
-	
-	    def receive = {
-	      case updated: ConvergentReplicatedDataType ⇒ …
-	    }
-	  }))
+```scala
+val listener = system.actorOf(Props(new Actor {
+  override def preStart(): Unit =
+    context.system.eventStream.subscribe(self, classOf[ConvergentReplicatedDataType])
+  override def postStop(): Unit =
+    context.system.eventStream.unsubscribe(self)
 
+  def receive = {
+    case updated: ConvergentReplicatedDataType ⇒ …
+  }
+}))
+```
 
 ## Configuration 
 
 This is the configuration where you can configure the REST server, backend storage systems etc. 
 
-    akka {
-      crdt {
-        rest-server {
-          run      = on
-          hostname = "127.0.0.1"
-          port     = 9000
-        }
-        convergent {
-          batching-window = 10ms
-          
-          # needs to implement the 'akka.crdt.convergent.Storage' trait
-          storage-class   = akka.crdt.convergent.LevelDbStorage
-        
-          # if native version is found that it is used - 
-          # else it falls back to Java port of LevelDB    
-          leveldb {                       
-            storage-path         = "./leveldb"  # directory for the database storage files  
-            destroy-on-shutdown  = off          # deletes the database files for the 
-                                                # specific node on shutdown 
-            use-fsync            = off          # use fsync on write
-            verify-checksums     = off          # verify checksums on write
-            use-native           = off          # try to find native LevelDB, if not 
-                                                # found then Java port will be used
-            cache-size           = 104857600    # max size of the in-memory cache
-          }
-        }
-        commutative {
-        }
+```json
+akka {
+  crdt {
+    rest-server {
+      run      = on
+      hostname = "127.0.0.1"
+      port     = 9000
+    }
+    convergent {
+      batching-window = 10ms
+      
+      # needs to implement the 'akka.crdt.convergent.Storage' trait
+      storage-class   = akka.crdt.convergent.LevelDbStorage
+    
+      # if native version is found that it is used - 
+      # else it falls back to Java port of LevelDB    
+      leveldb {                       
+        storage-path         = "./leveldb"  # directory for the database storage files  
+        destroy-on-shutdown  = off          # deletes the database files for the 
+                                            # specific node on shutdown 
+        use-fsync            = off          # use fsync on write
+        verify-checksums     = off          # verify checksums on write
+        use-native           = off          # try to find native LevelDB, if not 
+                                            # found then Java port will be used
+        cache-size           = 104857600    # max size of the in-memory cache
       }
     }
-
+    commutative {
+    }
+  }
+}
+```
