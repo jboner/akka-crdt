@@ -55,13 +55,13 @@ val storage = ConvergentReplicatedDataTypeDatabase(context.system)
 Get (or create a new) CRDT by id:
 
 ```scala
-val nrOfUsers = storage.getOrCreate[GCounter]("users")
+val nrOfUsers: GCounter = storage.getOrCreate[GCounter]("users")
 ```
 
 Create a new CRDT with a random id:
 
 ```scala
-val nrOfUsers = storage.getOrCreate[GCounter]
+val nrOfUsers: GCounter = storage.getOrCreate[GCounter]
 ```
 
 Store the updated CRDT:
@@ -108,7 +108,7 @@ counts.
 Create a ``g-counter`` in Scala: 
 
 ```scala
-val nrOfUsers = GCounter(id = "users")
+val nrOfUsers: GCounter = GCounter(id = "users")
 ```
 
 Increment the counter by 1: 
@@ -116,31 +116,37 @@ Increment the counter by 1:
 ```scala
 val nodeId = "some-unique-node-id"
     
-val updatedNrOfUsers = nrOfUsers + nodeId
+val updatedNrOfUsers: GCounter = nrOfUsers + nodeId
 ```
 
 Increment the counter with a delta: 
 
 ```scala
-val updatedNrOfUsers = nrOfUsers + (nodeId, 5)
+val updatedNrOfUsers: GCounter = nrOfUsers + (nodeId, 5)
 ```
 
 Get the value of the counter: 
 
 ```scala
-val count = nrOfUsers.value
+val count: Int = nrOfUsers.value
 ```
 
 Merge two counters: 
 
 ```scala
-val mergedCounter = thisCounter merge thatCounter
+val mergedCounter: GCounter = thisCounter merge thatCounter
 ```
 
-Get JSON view of the counter: 
+Get view of the counter: 
 
 ```scala
-val json = nrOfUsers.view
+val nrOfUsersView: GCounterView = nrOfUsers.view
+```
+
+Get JSON of the view: 
+
+```scala
+val json: JsValue = nrOfUsersView.toJson
 ```
 
 #### REST API
@@ -214,7 +220,7 @@ Increment the counter by 1:
 ```scala
 val nodeId = "some-unique-node-id"
     
-val updatedNrOfUsers = nrOfUsers + nodeId
+val updatedNrOfUsers: PNCounter = nrOfUsers + nodeId
 ```
 
 Decrement the counter by 1: 
@@ -222,37 +228,43 @@ Decrement the counter by 1:
 ```scala
 val nodeId = "some-unique-node-id"
     
-val updatedNrOfUsers = nrOfUsers - nodeId
+val updatedNrOfUsers: PNCounter = nrOfUsers - nodeId
 ```
 
 Increment the counter with a delta: 
 
 ```scala
-val updatedNrOfUsers = nrOfUsers + (nodeId, 5)
+val updatedNrOfUsers: PNCounter = nrOfUsers + (nodeId, 5)
 ```
 
 Decrement the counter with a delta: 
 
 ```scala
-val updatedNrOfUsers = nrOfUsers - (nodeId, 7)
+val updatedNrOfUsers: PNCounter = nrOfUsers - (nodeId, 7)
 ```
 
 Get the value of the counter: 
 
 ```scala
-val count = nrOfUsers.value
+val count: Int = nrOfUsers.value
 ```
 
 Merge two counters: 
 
 ```scala
-val mergedCounter = thisCounter merge thatCounter
+val mergedCounter: PNCounter = thisCounter merge thatCounter
 ```
 
-Get JSON view of the counter: 
+Get view of the counter: 
 
 ```scala
-val json = nrOfUsers.view
+val nrOfUsersView: PNCounterView = nrOfUsers.view
+```
+
+Get JSON of the view: 
+
+```scala
+val json: JsValue = nrOfUsersView.toJson
 ```
 
 #### REST API
@@ -344,19 +356,31 @@ Add JSON element to the set:
 ```scala
 val user = Json.parse("""{"username":"john","password":"coltrane"}""")
     
-val updatedUsers = users + user
+val updatedUsers: GSet = users + user
+```
+
+Get the value of the set: 
+
+```scala
+val userSet: immutable.Set[JsValue] = users.value
 ```
 
 Merge two sets: 
 
 ```scala
-val mergedSet = thisSet merge thatSet
+val mergedSet: GSet = thisSet merge thatSet
 ```
 
-Get JSON view of the set: 
+Get view of the set: 
 
 ```scala
-val json = users.view
+val usersView: GSetView = users.view
+```
+
+Get JSON of the view: 
+
+```scala
+val json: JsValue = usersView.toJson
 ```
 
 #### REST API
@@ -440,25 +464,37 @@ Add JSON element to the set:
 ```scala
 val user = Json.parse("""{"username":"john","password":"coltrane"}""")
     
-val updatedUsers = users + user
+val updatedUsers: TwoPhaseSet = users + user
 ```
 
 Remove a JSON element from the set: 
 
 ```scala
-val updatedUsers = users - user
+val updatedUsers: TwoPhaseSet = users - user
+```
+
+Get the value of the set: 
+
+```scala
+val userSet: immutable.Set[JsValue] = users.value
 ```
 
 Merge two sets: 
 
 ```scala
-val mergedSet = thisSet merge thatSet
+val mergedSet: TwoPhaseSet = thisSet merge thatSet
 ```
 
-Get JSON view of the set: 
+Get view of the set: 
 
 ```scala
-val json = users.view
+val usersView: TwoPhaseSetView = users.view
+```
+
+Get JSON of the view: 
+
+```scala
+val json: JsValue = usersView.toJson
 ```
 
 #### REST API
@@ -561,7 +597,8 @@ val listener = system.actorOf(Props(new Actor {
     context.system.eventStream.unsubscribe(self)
 
   def receive = {
-    case updated: ConvergentReplicatedDataType ⇒ …
+    case updatedCRDT: ConvergentReplicatedDataType ⇒ 
+      // handle the updated CRDT 
   }
 }))
 ```
