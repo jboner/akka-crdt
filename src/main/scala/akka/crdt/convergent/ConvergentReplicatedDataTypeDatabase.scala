@@ -4,8 +4,10 @@
 
 package akka.crdt.convergent
 
+import akka.crdt.RestServer
 import akka.actor._
-import akka.cluster.Cluster
+import akka.cluster.{ Cluster, Member, ClusterEvent }
+import ClusterEvent._
 import akka.event.{ Logging, LogSource, LoggingAdapter }
 import akka.contrib.pattern.{ DistributedPubSubExtension, DistributedPubSubMediator }
 import DistributedPubSubMediator._
@@ -16,9 +18,6 @@ import scala.reflect.ClassTag
 import scala.collection.immutable
 import scala.concurrent.duration._
 import java.util.UUID
-import akka.cluster.ClusterEvent._
-import akka.cluster.Member
-import akka.crdt.RestServer
 
 object ConvergentReplicatedDataTypeDatabase
   extends ExtensionId[ConvergentReplicatedDataTypeDatabase]
@@ -51,16 +50,15 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
         (classOf[ConvergentReplicatedDataTypeSettings], settings),
         (classOf[LoggingAdapter], log))).get // get the instance or throw the error
 
+  // immutable read-view of the current snapshots of members
+  @volatile private var _members: immutable.SortedSet[Member] = immutable.SortedSet.empty[Member]
+
   // TODO: perhaps use gossip instead of broadcast using pub/sub?
   // TODO: perhaps we should write to a (configurable) quorum instead of broadcasting to every node?
 
   // FIXME: perhaps use common supervisor for the pub/sub actors?
   private val publisher = system.actorOf(Props(classOf[Publisher], settings), name = "crdt:publisher")
   private val subscriber = system.actorOf(Props(classOf[Subscriber], storage), name = "crdt:subscriber")
-
-  // immutable read-view of the current snapshots of members
-  @volatile private var _members: immutable.SortedSet[Member] = immutable.SortedSet.empty[Member]
-
   private val clusterListener = system.actorOf(Props(new Actor with ActorLogging {
     def receive = {
       case state: CurrentClusterState ⇒ _members = state.members
