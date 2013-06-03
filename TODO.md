@@ -17,10 +17,9 @@ Write docs for:
 * <del>How to run the DemoRestServer</del>
 * <del>Architecture (pub/sub, leveldb) etc.</del>
 * <del>Configuration</del>
-* Scala ClusterClient API 
-* LevelDB and other storage options
+* <del>LevelDB and other storage options</del>
+* <del>Explain difference between CvRDT and CmRDT</del>
 * More background and concepts around CRDT, CAP and CALM
-* Explain difference between CvRDT and CmRDT
 
 ## Query API
 
