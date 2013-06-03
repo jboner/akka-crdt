@@ -40,6 +40,7 @@ Support in both Scala and REST API:
 
 * <del>Specification 11 State-based grow-only Set (G-Set)</del>
 * <del>Specification 12 State-based 2P-Set</del>
+* Optimized OR Set - as defined in [An Optimized Conﬂict-free Replicated Set](http://pagesperso-systeme.lip6.fr/Marc.Shapiro/papers/RR-8083.pdf)
 
 ### Registers
 
@@ -57,7 +58,7 @@ Support in both Scala and REST API:
 * Specification 9 Op-based LWW-Register
 * Specification 13 U-Set: Op-based 2P-Set with unique elements
 * Specification 14 Molli, Weiss, Skaf Set
-* Specification 15 Op-based Observed-Remove Set (OR-Set)
+* Optimized OR Set - as defined in [An Optimized Conﬂict-free Replicated Set](http://pagesperso-systeme.lip6.fr/Marc.Shapiro/papers/RR-8083.pdf)
 
 ### Graphs
 
