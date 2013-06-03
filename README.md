@@ -6,10 +6,13 @@
 
 The goal of this project is to provide a server-managed CRDT database build on top of Akka Cluster. We plan to implement most of the known CRDTs, both CvRDTs and CmRDTs (see below for the difference). It is meant to be used both from within an Akka application and as a stand-alone REST service speaking JSON.
 
+
+In short; a CRDT is a data type in which operations always commute and/or state changes always converge. CRDTs gives you very scalable eventual consistency "for free". Most CRDTs are a very limited data structures that does not fit all problems, but when they do, they really excel. There are multiple different CRDTs discovered: counters, sets, graphs etc. A data structure that is made up of CRDTs is also a CRDT, which makes it possible to create rich and advanced data structures that have the same nice properties. 
+
 A full outline of what CRDTs are all about is out of scope for this documentation. For good introduction to the subject read the excellent paper [A comprehensive study of Convergent and Commutative Replicated Data Types](http://hal.upmc.fr/docs/00/55/55/88/PDF/techreport.pdf) by Mark Shapiro et. al. 
 
 ----
-**NOTE**: This is __work in progress__ and is currently to be treated as a Proof of Concept. Apart from hardening and bug fixing etc. you can find some of the outstanding issues in the ``TODO.md`` file in the project root directory. If you find this project interesting please join us and help out. 
+**NOTE**: This is __work in progress__ and is currently to be treated as a Proof of Concept. Apart from hardening and bug fixing etc. you can find some of the outstanding issues in the [TODO](https://github.com/jboner/akka-crdt/blob/master/TODO.md) list. If you find this project interesting please join us and help out. 
 
 ----
 
