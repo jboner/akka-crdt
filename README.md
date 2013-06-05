@@ -47,6 +47,8 @@ You can run the REST server in two different ways.
 
 Each CRDT has a read-only JSON view representation which is used in the REST API for querying data. For details on the REST API and the different JSON views see the section with the different CRDT descriptions below. 
 
+The REST client can contact any of the nodes in the cluster to read or write any data. Normally cluster would be deployed with a load balancer in front of it that can balance the load evenly across the cluster. It is possible to ask any server node for the current complete list of nodes to talk to through the `http://url:port/nodes` GET request which will return a list of all the contact points in the cluster: `[{"host":"127.0.0.1","port":9000}]`  Note that this list can/will change dynamically.
+
 ## Embedded Server
 
 You can create the ``ConvergentReplicatedDataTypeDatabase`` Extension like this (from within an actor): 
