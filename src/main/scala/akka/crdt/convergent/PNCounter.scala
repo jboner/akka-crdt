@@ -58,6 +58,7 @@ case class PNCounter private (
    * Decrements the PNCounter with the delta specified. Agnostic to sign (does Math.abs(delta)).
    */
   def -(node: String, delta: Int = 1): PNCounter =
+    //PN: def :-
     new PNCounter(id, increments, decrements + (node, Math.abs(delta)))
 
   def merge(that: PNCounter): PNCounter =

@@ -12,6 +12,10 @@ import java.util.concurrent.TimeUnit
 class ConvergentReplicatedDataTypeSettings(val config: Config, val name: String) {
   import config._
 
+  //PN: perhaps 
+  // c = config.getConfig("akka.crdt")
+  // c.get...
+
   // rest-server
   val RestServerRun: Boolean = getBoolean("akka.crdt.rest-server.run")
   val RestServerHostname: String = getString("akka.crdt.rest-server.hostname")
@@ -22,6 +26,7 @@ class ConvergentReplicatedDataTypeSettings(val config: Config, val name: String)
   val StorageClass = {
     val classname = getString("akka.crdt.convergent.storage-class")
     if (classname.trim().isEmpty) "akka.crdt.convergent.LevelDbStorage"
+    //PN: classOf[akka.crdt.convergent.LevelDbStorage].getName, or define the default value in reference.conf (and don't allow "")
     else classname
   }
 
@@ -34,6 +39,7 @@ class ConvergentReplicatedDataTypeSettings(val config: Config, val name: String)
   val LevelDbCacheSize: Int = {
     val size = getInt("akka.crdt.convergent.leveldb.cache-size")
     require(size >= 0, "akka.crdt.convergent.leveldb.cache-size can't be negative")
+    //PN: try requiring (in Akka) instead
     size
   }
 }

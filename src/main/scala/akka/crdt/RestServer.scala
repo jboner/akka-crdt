@@ -33,6 +33,7 @@ object RestServer {
 				actor.provider = akka.cluster.ClusterActorRefProvider
 				loglevel       = INFO
 				loggers        = ["akka.testkit.TestEventListener"]
+        //PN: TestEventListener?
 				remote {
 					enabled-transports = ["akka.remote.netty.tcp"]
 					netty.tcp {
@@ -45,6 +46,7 @@ object RestServer {
 				  run      = on
 	  			hostname = "0.0.0.0"
 				  port     = 9000
+          //PN: that is a very popular port, isn't it?
 				}
     		crdt.convergent.leveldb.destroy-on-shutdown  = on 
 			}

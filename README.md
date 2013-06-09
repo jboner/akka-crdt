@@ -22,6 +22,8 @@ The implementation is provided as an [Akka Extension](http://doc.akka.io/docs/ak
 
 The CRDTs are immutable and can be queried, updated and managed either directly using the Akka Extension from within actors running on each node or from the "outside" through a REST API serving JSON over HTTP (see below for details). The serialisation protocol/format is pure JSON to make it possible to integrate with other CRDT client libraries. The JSON library used is [play-json](http://www.playframework.com/documentation/2.1.1/ScalaJson).
 
+//PN: I'm not convinced that exposing JSON library impl in api is a good idea
+
 There are two different implementations: 
 
 * **CvRDTs** - Convergent Replicated Data Types (completed as PoC)
@@ -169,6 +171,10 @@ val jsonAsString: String = nrOfUsers.toString
 
 ##### GET
 Find g-counter by id, or create it if it does not exist.
+
+//PN: GET should not be side effecting. Correct RESTful HTTP method would 
+be GET to retrieve existing or 404 if not exists and use PUT for creating
+new (if it doesn't exist, PUT should be idempotent)
 
 ```bash
 curl -i -H "Accept: application/json" http://127.0.0.1:9000/g-counter/users
