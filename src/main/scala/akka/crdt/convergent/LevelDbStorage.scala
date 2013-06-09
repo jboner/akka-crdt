@@ -22,12 +22,14 @@ class LevelDbStorage(
 
   val path = settings.LevelDbStoragePath
   val filenamePrefix = s"$path/$nodename"
+  //PN: ah it was prefixed, perhaps a comment in reference.conf
 
   val useFsync: Boolean = settings.LevelDbUseFsync
   val destroyOnShutdown: Boolean = settings.LevelDbDestroyOnShutdown
   val verifyChecksums: Boolean = settings.LevelDbVerifyChecksums
   val useNative: Boolean = settings.LevelDbUseNative
   val cacheSize: Int = settings.LevelDbCacheSize
+  //PN: why those vals? is it for subclassing? then they should be defs, otherwise I would just use import settings._
 
   private val levelDbReadOptions: ReadOptions = new ReadOptions().verifyChecksums(verifyChecksums)
   private val levelDbWriteOptions: WriteOptions = new WriteOptions().sync(useFsync)
@@ -52,11 +54,13 @@ class LevelDbStorage(
   private val pnCountersFilename = s"${filenamePrefix}_pn_counters"
   private val gSetsFilename = s"${filenamePrefix}_g_sets"
   private val twoPhaseSetsFilename = s"${filenamePrefix}_2p_sets"
+  //PN: why is needed to have one file per type?
 
   private val gCounters: DB = createDb(gCountersFilename)
   private val pnCounters: DB = createDb(pnCountersFilename)
   private val gSets: DB = createDb(gSetsFilename)
   private val twoPhaseSets: DB = createDb(twoPhaseSetsFilename)
+  //PN: shouldn't these be created lazy?
 
   private val databases: List[(String, DB)] =
     (gCountersFilename, gCounters) ::
@@ -76,6 +80,8 @@ class LevelDbStorage(
     log.debug("Finding CRDT in LevelDB: {}", crdt)
     crdt.asInstanceOf[T]
   }
+
+  //PN: would it be possible to make this class generic (without knowing all existing CRDT types)?
 
   def store[T <: ConvergentReplicatedDataType: ClassTag](crdt: T): Unit = {
     log.debug("Storing CvRDT in LevelDB: {}", crdt)

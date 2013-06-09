@@ -17,6 +17,7 @@ case class GCounterView(id: String, value: Int) extends ConvergentReplicatedData
 
 object GCounterView {
   implicit object format extends Format[GCounterView] {
+    //PN: format vs. Format?
     def reads(json: JsValue): JsResult[GCounterView] = JsSuccess(GCounterView(
       (json \ "id").as[String],
       (json \ "value").as[Int]))
@@ -42,11 +43,14 @@ case class GCounter(
   private[crdt] val state: Map[String, Int] = Map.empty[String, Int]) extends ConvergentReplicatedDataTypeCounter {
 
   val `type`: String = "g-counter"
+  //PN: override?
 
   def value: Int = state.values.sum
 
   def +(node: String, delta: Int = 1): GCounter = {
+    //PN: I think this operator should be `:+` (+ is already in use for String concatenation)  
     if (delta < 0) throw new IllegalArgumentException("Can't decrement a GCounter")
+    //PN: could also be written with require
     if (state.contains(node)) copy(state = state + (node -> (state(node) + delta)))
     else copy(state = state + (node -> delta))
   }

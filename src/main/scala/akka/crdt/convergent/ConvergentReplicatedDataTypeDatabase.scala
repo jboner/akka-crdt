@@ -49,11 +49,16 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
         (classOf[String], nodename),
         (classOf[ConvergentReplicatedDataTypeSettings], settings),
         (classOf[LoggingAdapter], log))).get // get the instance or throw the error
+  //PN: perhaps a more specific error message here
 
   // immutable read-view of the current snapshots of members
   @volatile private var _members: immutable.SortedSet[Member] = immutable.SortedSet.empty[Member]
+  //PN: I think you should keep a Set[Address] instead (you don't care and don't update the status anyway)
 
   // TODO: perhaps use gossip instead of broadcast using pub/sub?
+  //PN: yes, I think this should be gossip based
+  //    and if I understand this correctly you send the updated value only once, which means that
+  //    things will not be eventually replicated if that message is lost
   // TODO: perhaps we should write to a (configurable) quorum instead of broadcasting to every node?
 
   // FIXME: perhaps use common supervisor for the pub/sub actors?
@@ -123,6 +128,8 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
     newSet
   }
 
+  //PN: would it be possible to make this generic (without knowing all existing CRDT types)?
+
   def shutdown(): Unit = {
     log.info("Shutting down ConvergentReplicatedDataTypeDatabase...")
     restServer foreach { _.shutdown() }
@@ -177,6 +184,7 @@ class Publisher(settings: ConvergentReplicatedDataTypeSettings) extends Actor wi
       log.debug("Adding JSON to batch {}", jsonString)
       batch = batch :+ jsonString // add to batch    	
       if (batchingWindow.isOverdue) sendBatch() // if batching window is closed - ship batch and reset window
+    //PN: else change receiveTimeout
 
     case ReceiveTimeout ⇒
       sendBatch() // if no messages within batching window - ship batch and reset window
