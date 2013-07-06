@@ -20,10 +20,10 @@ import unfiltered.util._
 import unfiltered.request.QParams._
 
 /**
- * Main REST server. Starts up on port 9000 on 0.0.0.0 by default. Configure it to run on other port and address.
+ * Main REST server. Starts up on port 9009 on 0.0.0.0 by default. Configure it to run on other port and address.
  *
- * Run using ``sbt run -Dakka.crdt.rest-server.port=9999``
- * or as a regular main class ``java -Dakka.crdt.rest-server.port=9999 -cp ... akka.crdt.RestServer``.
+ * Run using ``sbt run -Dakka.crdt.rest-server.port=9009``
+ * or as a regular main class ``java -Dakka.crdt.rest-server.port=9009 -cp ... akka.crdt.RestServer``.
  */
 object RestServer {
 
@@ -32,8 +32,6 @@ object RestServer {
 			akka {
 				actor.provider = akka.cluster.ClusterActorRefProvider
 				loglevel       = INFO
-				loggers        = ["akka.testkit.TestEventListener"]
-        //PN: TestEventListener?
 				remote {
 					enabled-transports = ["akka.remote.netty.tcp"]
 					netty.tcp {
@@ -45,8 +43,7 @@ object RestServer {
 				crdt.rest-server {
 				  run      = on
 	  			hostname = "0.0.0.0"
-				  port     = 9000
-          //PN: that is a very popular port, isn't it?
+				  port     = 9009
 				}
     		crdt.convergent.leveldb.destroy-on-shutdown  = on 
 			}
@@ -133,16 +130,23 @@ class CvRDTPlan(storage: ConvergentReplicatedDataTypeDatabase)
         // =================================================================
         // g-counter
         // =================================================================
-        case GET(Path(Seg("g-counter" :: Nil))) ⇒
+        case PUT(Path(Seg("g-counter" :: Nil))) ⇒
           async {
-            future { storage.getOrCreate[GCounter]().get } map { counter ⇒
-              jsonResponse(counter.view.toString)
+            future { storage.create[GCounter]().get } map { counter ⇒
+              jsonResponse(s"Successfully created g-counter with id = '${counter.id}'")
+            }
+          }
+
+        case PUT(Path(Seg("g-counter" :: id :: Nil))) ⇒
+          async {
+            future { storage.create[GCounter](id).get } map { counter ⇒
+              jsonResponse(s"Successfully created g-counter with id = '${counter.id}'")
             }
           }
 
         case GET(Path(Seg("g-counter" :: id :: Nil))) ⇒
           async {
-            future { storage.getOrCreate[GCounter](id).get } map { counter ⇒
+            future { storage.findById[GCounter](id).get } map { counter ⇒
               jsonResponse(counter.view.toString)
             }
           }
@@ -162,7 +166,10 @@ class CvRDTPlan(storage: ConvergentReplicatedDataTypeDatabase)
           validateParams(params) match {
             case Right((node, delta)) ⇒
               async {
-                future { storage.update(storage.getOrCreate[GCounter](id).get + (node, delta)) } map { counter ⇒
+                future {
+                  val counter = storage.findById[GCounter](id) getOrElse GCounter(id)
+                  storage.update(counter + (node, delta))
+                } map { counter ⇒
                   jsonResponse(counter.view.toString)
                 }
               }
@@ -173,16 +180,23 @@ class CvRDTPlan(storage: ConvergentReplicatedDataTypeDatabase)
         // =================================================================
         // pn-counter
         // =================================================================
-        case GET(Path(Seg("pn-counter" :: Nil))) ⇒
+        case PUT(Path(Seg("pn-counter" :: Nil))) ⇒
           async {
-            future { storage.getOrCreate[PNCounter]().get } map { counter ⇒
-              jsonResponse(counter.view.toString)
+            future { storage.create[PNCounter]().get } map { counter ⇒
+              jsonResponse(s"Successfully created pn-counter with id = '${counter.id}'")
+            }
+          }
+
+        case PUT(Path(Seg("pn-counter" :: id :: Nil))) ⇒
+          async {
+            future { storage.create[PNCounter](id).get } map { counter ⇒
+              jsonResponse(s"Successfully created pn-counter with id = '${counter.id}'")
             }
           }
 
         case GET(Path(Seg("pn-counter" :: id :: Nil))) ⇒
           async {
-            future { storage.getOrCreate[PNCounter](id).get } map { counter ⇒
+            future { storage.findById[PNCounter](id).get } map { counter ⇒
               jsonResponse(counter.view.toString)
             }
           }
@@ -201,7 +215,10 @@ class CvRDTPlan(storage: ConvergentReplicatedDataTypeDatabase)
           validateParams(params) match {
             case Right((node, delta)) ⇒
               async {
-                future { storage.update(storage.getOrCreate[PNCounter](id).get + (node, delta)) } map { counter ⇒
+                future {
+                  val counter = storage.findById[PNCounter](id) getOrElse PNCounter(id)
+                  storage.update(counter + (node, delta))
+                } map { counter ⇒
                   jsonResponse(counter.view.toString)
                 }
               }
@@ -212,16 +229,23 @@ class CvRDTPlan(storage: ConvergentReplicatedDataTypeDatabase)
         // =================================================================
         // g-set
         // =================================================================
-        case GET(Path(Seg("g-set" :: Nil))) ⇒
+        case PUT(Path(Seg("g-set" :: Nil))) ⇒
           async {
-            future { storage.getOrCreate[GSet]().get } map { set ⇒
-              jsonResponse(set.view.toString)
+            future { storage.create[GSet]().get } map { set ⇒
+              jsonResponse(s"Successfully created g-set with id = '${set.id}'")
+            }
+          }
+
+        case PUT(Path(Seg("g-set" :: id :: Nil))) ⇒
+          async {
+            future { storage.create[GSet](id).get } map { set ⇒
+              jsonResponse(s"Successfully created g-set with id = '${set.id}'")
             }
           }
 
         case GET(Path(Seg("g-set" :: id :: Nil))) ⇒
           async {
-            future { storage.getOrCreate[GSet](id).get } map { set ⇒
+            future { storage.findById[GSet](id).get } map { set ⇒
               jsonResponse(set.view.toString)
             }
           }
@@ -230,7 +254,7 @@ class CvRDTPlan(storage: ConvergentReplicatedDataTypeDatabase)
           async {
             val jsonValue = parse(new String(Body.bytes(req)).trim())
             future {
-              val oldSet = storage.getOrCreate[GSet](id).get
+              val oldSet = storage.findById[GSet](id) getOrElse GSet(id)
               val newSet = oldSet + jsonValue
               storage.update(newSet)
             } map { set ⇒
@@ -241,16 +265,23 @@ class CvRDTPlan(storage: ConvergentReplicatedDataTypeDatabase)
         // =================================================================
         // 2p-set
         // =================================================================
-        case GET(Path(Seg("2p-set" :: Nil))) ⇒
+        case PUT(Path(Seg("2p-set" :: Nil))) ⇒
           async {
-            future { storage.getOrCreate[TwoPhaseSet]().get } map { set ⇒
-              jsonResponse(set.view.toString)
+            future { storage.create[TwoPhaseSet]().get } map { set ⇒
+              jsonResponse(s"Successfully created 2p-set with id = '${set.id}'")
+            }
+          }
+
+        case PUT(Path(Seg("2p-set" :: id :: Nil))) ⇒
+          async {
+            future { storage.create[TwoPhaseSet](id).get } map { set ⇒
+              jsonResponse(s"Successfully created 2p-set with id = '${set.id}'")
             }
           }
 
         case GET(Path(Seg("2p-set" :: id :: Nil))) ⇒
           async {
-            future { storage.getOrCreate[TwoPhaseSet](id).get } map { set ⇒
+            future { storage.findById[TwoPhaseSet](id).get } map { set ⇒
               jsonResponse(set.view.toString)
             }
           }
@@ -259,7 +290,7 @@ class CvRDTPlan(storage: ConvergentReplicatedDataTypeDatabase)
           async {
             val jsonValue = parse(new String(Body.bytes(req)).trim())
             future {
-              val oldSet = storage.getOrCreate[TwoPhaseSet](id).get
+              val oldSet = storage.findById[TwoPhaseSet](id) getOrElse TwoPhaseSet(id)
               val newSet = oldSet + jsonValue
               storage.update(newSet)
             } map { set ⇒
@@ -271,7 +302,7 @@ class CvRDTPlan(storage: ConvergentReplicatedDataTypeDatabase)
           async {
             val jsonValue = parse(new String(Body.bytes(req)).trim())
             future {
-              val oldSet = storage.getOrCreate[TwoPhaseSet](id).get
+              val oldSet = storage.findById[TwoPhaseSet](id) getOrElse TwoPhaseSet(id)
               val newSet = oldSet - jsonValue
               storage.update(newSet)
             } map { set ⇒

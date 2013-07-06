@@ -8,6 +8,7 @@ import scala.util.Try
 import scala.reflect.ClassTag
 import scala.collection.immutable
 import play.api.libs.json.Json.parse
+import play.api.libs.json.JsValue
 import akka.event.LoggingAdapter
 import org.iq80.leveldb.{ Logger, ReadOptions, WriteOptions, Options, CompressionType, WriteBatch, DB, DBFactory }
 import org.iq80.leveldb.impl.Iq80DBFactory
@@ -19,29 +20,21 @@ class LevelDbStorage(
   val nodename: String,
   val settings: ConvergentReplicatedDataTypeSettings,
   log: LoggingAdapter) extends Storage { storage ⇒
+  import settings._
 
-  val path = settings.LevelDbStoragePath
-  val filenamePrefix = s"$path/$nodename"
-  //PN: ah it was prefixed, perhaps a comment in reference.conf
+  val filename = s"$LevelDbStoragePath/$nodename"
 
-  val useFsync: Boolean = settings.LevelDbUseFsync
-  val destroyOnShutdown: Boolean = settings.LevelDbDestroyOnShutdown
-  val verifyChecksums: Boolean = settings.LevelDbVerifyChecksums
-  val useNative: Boolean = settings.LevelDbUseNative
-  val cacheSize: Int = settings.LevelDbCacheSize
-  //PN: why those vals? is it for subclassing? then they should be defs, otherwise I would just use import settings._
+  private val levelDbReadOptions: ReadOptions = new ReadOptions().verifyChecksums(LevelDbVerifyChecksums)
+  private val levelDbWriteOptions: WriteOptions = new WriteOptions().sync(LevelDbUseFsync)
 
-  private val levelDbReadOptions: ReadOptions = new ReadOptions().verifyChecksums(verifyChecksums)
-  private val levelDbWriteOptions: WriteOptions = new WriteOptions().sync(useFsync)
-
-  private val factory: DBFactory = if (useNative) JniDBFactory.factory else Iq80DBFactory.factory
+  private val factory: DBFactory = if (LevelDbUseNative) JniDBFactory.factory else Iq80DBFactory.factory
 
   private val leveldbOptions: Options = {
     val options = new Options()
       .createIfMissing(true)
-      .cacheSize(cacheSize)
+      .cacheSize(LevelDbCacheSize)
       .logger(new Logger() { def log(message: String) = storage.log.debug(message) })
-    if (useNative) options.compressionType(CompressionType.SNAPPY)
+    if (LevelDbUseNative) options.compressionType(CompressionType.SNAPPY)
     else options.compressionType(CompressionType.NONE)
   }
 
@@ -50,53 +43,31 @@ class LevelDbStorage(
     factory.open(new File(filename), leveldbOptions)
   }
 
-  private val gCountersFilename = s"${filenamePrefix}_g_counters"
-  private val pnCountersFilename = s"${filenamePrefix}_pn_counters"
-  private val gSetsFilename = s"${filenamePrefix}_g_sets"
-  private val twoPhaseSetsFilename = s"${filenamePrefix}_2p_sets"
-  //PN: why is needed to have one file per type?
-
-  private val gCounters: DB = createDb(gCountersFilename)
-  private val pnCounters: DB = createDb(pnCountersFilename)
-  private val gSets: DB = createDb(gSetsFilename)
-  private val twoPhaseSets: DB = createDb(twoPhaseSetsFilename)
-  //PN: shouldn't these be created lazy?
-
-  private val databases: List[(String, DB)] =
-    (gCountersFilename, gCounters) ::
-      (pnCountersFilename, pnCounters) ::
-      (gSetsFilename, gSets) ::
-      (twoPhaseSetsFilename, twoPhaseSets) ::
-      Nil
+  private val db: DB = createDb(filename)
 
   def findById[T <: ConvergentReplicatedDataType: ClassTag](id: String): Try[T] = Try {
+    val json = toJson(getElementInDb(id))
     val clazz = implicitly[ClassTag[T]].runtimeClass
     val crdt =
-      if (classOf[GCounter].isAssignableFrom(clazz)) parse(asString(gCounters.get(bytes(id)))).as[GCounter]
-      else if (classOf[PNCounter].isAssignableFrom(clazz)) parse(asString(pnCounters.get(bytes(id)))).as[PNCounter]
-      else if (classOf[GSet].isAssignableFrom(clazz)) parse(asString(gSets.get(bytes(id)))).as[GSet]
-      else if (classOf[TwoPhaseSet].isAssignableFrom(clazz)) parse(asString(twoPhaseSets.get(bytes(id)))).as[TwoPhaseSet]
+      if (classOf[GCounter].isAssignableFrom(clazz)) json.as[GCounter]
+      else if (classOf[PNCounter].isAssignableFrom(clazz)) json.as[PNCounter]
+      else if (classOf[GSet].isAssignableFrom(clazz)) json.as[GSet]
+      else if (classOf[TwoPhaseSet].isAssignableFrom(clazz)) json.as[TwoPhaseSet]
       else throw new ClassCastException(s"Could create new CvRDT with id [$id] and type [$clazz]")
-    log.debug("Finding CRDT in LevelDB: {}", crdt)
+    log.debug("Finding CvRDT in LevelDB: {}", crdt)
     crdt.asInstanceOf[T]
   }
 
-  //PN: would it be possible to make this class generic (without knowing all existing CRDT types)?
-
-  def store[T <: ConvergentReplicatedDataType: ClassTag](crdt: T): Unit = {
+  def store(crdt: ConvergentReplicatedDataType): Unit = {
     log.debug("Storing CvRDT in LevelDB: {}", crdt)
-    val clazz = implicitly[ClassTag[T]].runtimeClass
-    val db = databaseFor(clazz)
     db.put(bytes(crdt.id), bytes(crdt.toString))
   }
 
   /**
    * Store a batch.
    */
-  def store[T <: ConvergentReplicatedDataType: ClassTag](crdts: immutable.Seq[T]): Unit = {
+  def store(crdts: immutable.Seq[ConvergentReplicatedDataType]): Unit = {
     log.debug("Storing batch in LevelDB: {}", crdts.mkString(", "))
-    val clazz = implicitly[ClassTag[T]].runtimeClass
-    val db = databaseFor(clazz)
     val batch = db.createWriteBatch()
     try {
       crdts foreach { crdt ⇒ batch put (bytes(crdt.id), bytes(crdt.toString)) }
@@ -106,50 +77,19 @@ class LevelDbStorage(
 
   override def close(): Unit = {
     log.info("Closing LevelDB storage")
-    databases foreach { case (_, db) ⇒ db.close() }
+    db.close()
   }
 
-  override def destroy(): Unit = if (destroyOnShutdown) {
+  override def destroy(): Unit = if (LevelDbDestroyOnShutdown) {
     log.info("Destroying LevelDB storage(s)")
-    databases foreach {
-      case (filename, _) ⇒
-        factory.destroy(new File(filename), new Options)
-    }
+    factory.destroy(new File(filename), new Options)
   }
 
-  private def databaseFor(clazz: Class[_]): DB = {
-    if (classOf[GCounter].isAssignableFrom(clazz)) gCounters
-    else if (classOf[PNCounter].isAssignableFrom(clazz)) pnCounters
-    else if (classOf[GSet].isAssignableFrom(clazz)) gSets
-    else if (classOf[TwoPhaseSet].isAssignableFrom(clazz)) twoPhaseSets
-    else throw new ClassCastException(s"Could store CvRDT with type [$clazz]")
+  private def getElementInDb(id: String): Array[Byte] = {
+    val result = db.get(bytes(id))
+    if (result eq null) throw new StorageException(s"Element with id = '$id' does not exists in database")
+    result
   }
+
+  private def toJson(bytes: Array[Byte]): JsValue = parse(asString(bytes))
 }
-
-/*
-TODO: Stuff to look into (from LevelDBJNI docs):
- 
-Getting approximate sizes.
- 
-    long[] sizes = db.getApproximateSizes(new Range(bytes("a"), bytes("k")), new Range(bytes("k"), bytes("z")));
-    System.out.println("Size: "+sizes[0]+", "+sizes[1]);
- 
-Getting database status.
- 
-    String stats = db.getProperty("leveldb.stats");
-    System.out.println(stats);
- 
-Repairing a database.
-
-    Options options = new Options();
-    factory.repair(new File("example"), options);
-
-Using a memory pool to make native memory allocations more efficient:
-
-    JniDBFactory.pushMemoryPool(1024 * 512);
-    try {
-        // .. work with the DB in here,
-    } finally {
-        JniDBFactory.popMemoryPool();
-    }
- */

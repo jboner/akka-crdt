@@ -12,11 +12,11 @@ import java.util.UUID
  * Implements a snapshot view of the PNCounter.
  */
 case class PNCounterView(id: String, value: Int) extends ConvergentReplicatedDataTypeCounterView {
-  def toJson: JsValue = PNCounterView.format.writes(this)
+  def toJson: JsValue = PNCounterView.Format.writes(this)
 }
 
 object PNCounterView {
-  implicit object format extends Format[PNCounterView] {
+  implicit object Format extends Format[PNCounterView] {
     def reads(json: JsValue): JsResult[PNCounterView] = JsSuccess(PNCounterView(
       (json \ "id").as[String],
       (json \ "value").as[Int]))
@@ -42,7 +42,7 @@ case class PNCounter private (
   private[crdt] val increments: GCounter,
   private[crdt] val decrements: GCounter) extends ConvergentReplicatedDataTypeCounter {
 
-  val `type`: String = "pn-counter"
+  val crdtType: String = "pn-counter"
 
   def value: Int = increments.value - decrements.value
 
@@ -66,7 +66,7 @@ case class PNCounter private (
 
   def view: ConvergentReplicatedDataTypeCounterView = PNCounterView(id, value)
 
-  override def toJson: JsValue = PNCounter.format.writes(this)
+  override def toJson: JsValue = PNCounter.Format.writes(this)
 }
 
 object PNCounter {
@@ -79,14 +79,14 @@ object PNCounter {
     new PNCounter(id, GCounter(id = id + "/inc"), GCounter(id = id + "/dec"))
   }
 
-  implicit object format extends Format[PNCounter] {
+  implicit object Format extends Format[PNCounter] {
     def reads(json: JsValue): JsResult[PNCounter] = JsSuccess(new PNCounter(
       (json \ "id").as[String],
       (json \ "increments").as[GCounter],
       (json \ "decrements").as[GCounter]))
 
     def writes(counter: PNCounter): JsValue = JsObject(Seq(
-      "type" -> JsString(counter.`type`),
+      "type" -> JsString(counter.crdtType),
       "id" -> JsString(counter.id),
       "increments" -> Json.toJson(counter.increments),
       "decrements" -> Json.toJson(counter.decrements)))

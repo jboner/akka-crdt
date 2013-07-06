@@ -7,24 +7,20 @@ package akka.crdt.convergent
 import org.scalatest.WordSpec
 import org.scalatest.matchers.MustMatchers
 import org.scalatest.BeforeAndAfterAll
-
 import akka.testkit.TestKit
-
 import akka.actor.ActorSystem
-
 import unfiltered.netty._
-
 import com.typesafe.config.ConfigFactory
-
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import unfiltered.request.PUT
 
 class RestServerSpec extends WordSpec with MustMatchers with BeforeAndAfterAll {
 
   val system = ActorSystem("RestServerSpec", ConfigFactory.parseString("""
 		akka {
 			actor.provider = akka.cluster.ClusterActorRefProvider
-			loglevel = INFO
+			loglevel = DEBUG
 			loggers = ["akka.testkit.TestEventListener"]
 			remote {
 				enabled-transports = ["akka.remote.netty.tcp"]
@@ -37,7 +33,7 @@ class RestServerSpec extends WordSpec with MustMatchers with BeforeAndAfterAll {
 			crdt.rest-server {
 			  run      = on
   			hostname = "127.0.0.1"
-			  port     = 9000
+			  port     = 9009
 			}
   		crdt.convergent.leveldb.destroy-on-shutdown  = on 
 		}
@@ -55,7 +51,7 @@ class RestServerSpec extends WordSpec with MustMatchers with BeforeAndAfterAll {
   "A CRDT REST server" must {
     import dispatch._, Defaults._
 
-    def newURL = host("127.0.0.1", 9000) // TODO: should use the config values
+    def newURL = host("127.0.0.1", 9009) // TODO: should use the config values
 
     // =================================================================
     // ping/pong
@@ -72,21 +68,26 @@ class RestServerSpec extends WordSpec with MustMatchers with BeforeAndAfterAll {
 
     "be able to return a list with (hostname, port) for all REST servers" in {
       val result = Await.result(Http(newURL / "nodes" OK as.String), timeout).trim()
-      result must be("""[{"host":"127.0.0.1","port":9000}]""")
+      result must be("""[{"host":"127.0.0.1","port":9009}]""")
     }
 
     // =================================================================
     // g-counter
     // =================================================================
 
-    "be able to create a new g-counter with a specific id" in {
-      val result = Await.result(Http(newURL / "g-counter" / "jonas" OK as.String), timeout).trim()
-      result must be("""{"type":"counter","id":"jonas","value":0}""")
+    "be able to create a new g-counter with a random id" in {
+      val result = Await.result(Http((newURL / "g-counter").PUT), timeout).getResponseBody().trim()
+      result.startsWith("Successfully created g-counter") must be(true)
     }
 
-    "be able to create a new g-counter with a random id" in {
-      val result = Await.result(Http(newURL / "g-counter" OK as.String), timeout).trim()
-      result.startsWith("""{"type":"counter"""") must be(true)
+    "be able to create a new g-counter with a specific id" in {
+      val result = Await.result(Http((newURL / "g-counter" / "jonas").PUT), timeout).getResponseBody().trim()
+      result must be("Successfully created g-counter with id = 'jonas'")
+    }
+
+    "be able to find a new g-counter with a specific id" in {
+      val result = Await.result(Http(newURL / "g-counter" / "jonas"), timeout).getResponseBody().trim()
+      result must be("""{"type":"counter","id":"jonas","value":0}""")
     }
 
     "be able to increment a g-counter" in {
@@ -99,14 +100,19 @@ class RestServerSpec extends WordSpec with MustMatchers with BeforeAndAfterAll {
     // pn-counter
     // =================================================================
 
-    "be able to create a new pn-counter with a specific id" in {
-      val result = Await.result(Http(newURL / "pn-counter" / "users1" OK as.String), timeout).trim()
-      result must be("""{"type":"counter","id":"users1","value":0}""")
+    "be able to create a new pn-counter with a random id" in {
+      val result = Await.result(Http((newURL / "pn-counter").PUT), timeout).getResponseBody().trim()
+      result.startsWith("Successfully created pn-counter") must be(true)
     }
 
-    "be able to create a new pn-counter with a random id" in {
-      val result = Await.result(Http(newURL / "pn-counter" OK as.String), timeout).trim()
-      result.startsWith("""{"type":"counter"""") must be(true)
+    "be able to create a new pn-counter with a specific id" in {
+      val result = Await.result(Http((newURL / "pn-counter" / "users1").PUT), timeout).getResponseBody().trim()
+      result must be("Successfully created pn-counter with id = 'users1'")
+    }
+
+    "be able to find a new pn-counter with a specific id" in {
+      val result = Await.result(Http(newURL / "pn-counter" / "users1"), timeout).getResponseBody().trim()
+      result must be("""{"type":"counter","id":"users1","value":0}""")
     }
 
     "be able to increment a pn-counter" in {
@@ -125,14 +131,19 @@ class RestServerSpec extends WordSpec with MustMatchers with BeforeAndAfterAll {
     // g-set
     // =================================================================
 
-    "be able to create a new g-set with a specific id" in {
-      val result = Await.result(Http(newURL / "g-set" / "users1" OK as.String), timeout).trim()
-      result must be("""{"type":"set","id":"users1","value":[]}""")
+    "be able to create a new g-set with a random id" in {
+      val result = Await.result(Http((newURL / "g-set").PUT), timeout).getResponseBody().trim()
+      result.startsWith("Successfully created g-set") must be(true)
     }
 
-    "be able to create a new g-set with a random id" in {
-      val result = Await.result(Http(newURL / "g-set" OK as.String), timeout).trim()
-      result.startsWith("""{"type":"set"""") must be(true)
+    "be able to create a new g-set with a specific id" in {
+      val result = Await.result(Http((newURL / "g-set" / "users1").PUT), timeout).getResponseBody().trim()
+      result must be("Successfully created g-set with id = 'users1'")
+    }
+
+    "be able to find a new g-set with a specific id" in {
+      val result = Await.result(Http(newURL / "g-set" / "users1"), timeout).getResponseBody().trim()
+      result must be("""{"type":"set","id":"users1","value":[]}""")
     }
 
     "be able to add a JSON value to a g-set" in {
@@ -155,14 +166,19 @@ class RestServerSpec extends WordSpec with MustMatchers with BeforeAndAfterAll {
     // 2p-set
     // =================================================================
 
-    "be able to create a new 2p-set with a specific id" in {
-      val result = Await.result(Http(newURL / "2p-set" / "users1" OK as.String), timeout).trim()
-      result must be("""{"type":"set","id":"users1","value":[]}""")
+    "be able to create a new 2p-set with a random id" in {
+      val result = Await.result(Http((newURL / "2p-set").PUT), timeout).getResponseBody().trim()
+      result.startsWith("Successfully created 2p-set") must be(true)
     }
 
-    "be able to create a new 2p-set with a random id" in {
-      val result = Await.result(Http(newURL / "2p-set" OK as.String), timeout).trim()
-      result.startsWith("""{"type":"set"""") must be(true)
+    "be able to create a new 2p-set with a specific id" in {
+      val result = Await.result(Http((newURL / "2p-set" / "users1").PUT), timeout).getResponseBody().trim()
+      result must be("Successfully created 2p-set with id = 'users1'")
+    }
+
+    "be able to find a new 2p-set with a specific id" in {
+      val result = Await.result(Http(newURL / "2p-set" / "users1"), timeout).getResponseBody().trim()
+      result must be("""{"type":"set","id":"users1","value":[]}""")
     }
 
     "be able to add a JSON value to a 2p-set" in {

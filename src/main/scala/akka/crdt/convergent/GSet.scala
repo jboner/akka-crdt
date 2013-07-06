@@ -14,11 +14,11 @@ import java.util.UUID
  * Implements a snapshot view of the GSet.
  */
 case class GSetView(id: String, value: Set[JsValue]) extends ConvergentReplicatedDataTypeCounterView {
-  def toJson: JsValue = GSetView.format.writes(this)
+  def toJson: JsValue = GSetView.Format.writes(this)
 }
 
 object GSetView {
-  implicit object format extends Format[GSetView] {
+  implicit object Format extends Format[GSetView] {
     def reads(json: JsValue): JsResult[GSetView] = JsSuccess(GSetView(
       (json \ "id").as[String],
       (json \ "value").as[Set[JsValue]]))
@@ -37,7 +37,7 @@ case class GSet(
   id: String = UUID.randomUUID.toString,
   private[crdt] val state: Set[JsValue] = Set.empty[JsValue]) extends ConvergentReplicatedDataTypeSet {
 
-  val `type`: String = "g-set"
+  val crdtType: String = "g-set"
 
   def +(element: JsValue): GSet = GSet(id, state + element)
 
@@ -47,17 +47,17 @@ case class GSet(
 
   def view: ConvergentReplicatedDataTypeCounterView = GSetView(id, value)
 
-  override def toJson: JsValue = GSet.format.writes(this)
+  override def toJson: JsValue = GSet.Format.writes(this)
 }
 
 object GSet {
-  implicit object format extends Format[GSet] {
+  implicit object Format extends Format[GSet] {
     def reads(json: JsValue): JsResult[GSet] = JsSuccess(GSet(
       (json \ "id").as[String],
       (json \ "state").as[Set[JsValue]]))
 
     def writes(set: GSet): JsValue = JsObject(Seq(
-      "type" -> JsString(set.`type`),
+      "type" -> JsString(set.crdtType),
       "id" -> JsString(set.id),
       "state" -> Json.toJson(set.state)))
   }

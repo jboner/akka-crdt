@@ -14,11 +14,11 @@ import java.util.UUID
  * Implements a snapshot view of the TwoPhaseSet.
  */
 case class TwoPhaseSetView(id: String, value: Set[JsValue]) extends ConvergentReplicatedDataTypeCounterView {
-  def toJson: JsValue = TwoPhaseSetView.format.writes(this)
+  def toJson: JsValue = TwoPhaseSetView.Format.writes(this)
 }
 
 object TwoPhaseSetView {
-  implicit object format extends Format[TwoPhaseSetView] {
+  implicit object Format extends Format[TwoPhaseSetView] {
     def reads(json: JsValue): JsResult[TwoPhaseSetView] = JsSuccess(TwoPhaseSetView(
       (json \ "id").as[String],
       (json \ "value").as[Set[JsValue]]))
@@ -43,7 +43,7 @@ case class TwoPhaseSet(
   private[crdt] val adds: GSet,
   private[crdt] val removes: GSet) extends ConvergentReplicatedDataTypeSet {
 
-  val `type`: String = "2p-set"
+  val crdtType: String = "2p-set"
 
   def +(element: JsValue): TwoPhaseSet = {
     if ((adds contains element) && (removes contains element)) throw new IllegalStateException(s"Can not add $element - already removed from set") // was previously removed
@@ -62,7 +62,7 @@ case class TwoPhaseSet(
 
   def view: ConvergentReplicatedDataTypeCounterView = TwoPhaseSetView(id, value)
 
-  override def toJson: JsValue = TwoPhaseSet.format.writes(this)
+  override def toJson: JsValue = TwoPhaseSet.Format.writes(this)
 }
 
 object TwoPhaseSet {
@@ -74,14 +74,14 @@ object TwoPhaseSet {
     new TwoPhaseSet(id, GSet(id = id + "/adds"), GSet(id = id + "/removes"))
   }
 
-  implicit object format extends Format[TwoPhaseSet] {
+  implicit object Format extends Format[TwoPhaseSet] {
     def reads(json: JsValue): JsResult[TwoPhaseSet] = JsSuccess(TwoPhaseSet(
       (json \ "id").as[String],
       (json \ "adds").as[GSet],
       (json \ "removes").as[GSet]))
 
     def writes(set: TwoPhaseSet): JsValue = JsObject(Seq(
-      "type" -> JsString(set.`type`),
+      "type" -> JsString(set.crdtType),
       "id" -> JsString(set.id),
       "adds" -> Json.toJson(set.adds),
       "removes" -> Json.toJson(set.removes)))

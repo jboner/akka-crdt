@@ -9,6 +9,9 @@ import scala.reflect.ClassTag
 import scala.collection.immutable
 import akka.actor.ActorSystem
 import akka.event.LoggingAdapter
+import akka.AkkaException
+
+class StorageException(message: String) extends AkkaException(message)
 
 /**
  * Interface for all storage implementations for the CvRDT.
@@ -22,12 +25,12 @@ trait Storage {
   /**
    * Store a CvRDT.
    */
-  def store[T <: ConvergentReplicatedDataType: ClassTag](crdt: T): Unit
+  def store(crdt: ConvergentReplicatedDataType): Unit
 
   /**
    * Store a batch.
    */
-  def store[T <: ConvergentReplicatedDataType: ClassTag](crdts: immutable.Seq[T]): Unit
+  def store(crdts: immutable.Seq[ConvergentReplicatedDataType]): Unit
 
   /**
    * Close the database.

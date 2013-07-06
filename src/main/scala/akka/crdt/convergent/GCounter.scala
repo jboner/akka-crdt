@@ -12,11 +12,11 @@ import java.util.UUID
  * Implements a snapshot view of the GCounter.
  */
 case class GCounterView(id: String, value: Int) extends ConvergentReplicatedDataTypeCounterView {
-  def toJson: JsValue = GCounterView.format.writes(this)
+  def toJson: JsValue = GCounterView.Format.writes(this)
 }
 
 object GCounterView {
-  implicit object format extends Format[GCounterView] {
+  implicit object Format extends Format[GCounterView] {
     //PN: format vs. Format?
     def reads(json: JsValue): JsResult[GCounterView] = JsSuccess(GCounterView(
       (json \ "id").as[String],
@@ -42,15 +42,13 @@ case class GCounter(
   id: String = UUID.randomUUID.toString,
   private[crdt] val state: Map[String, Int] = Map.empty[String, Int]) extends ConvergentReplicatedDataTypeCounter {
 
-  val `type`: String = "g-counter"
-  //PN: override?
+  override val crdtType: String = "g-counter"
 
   def value: Int = state.values.sum
 
   def +(node: String, delta: Int = 1): GCounter = {
     //PN: I think this operator should be `:+` (+ is already in use for String concatenation)  
-    if (delta < 0) throw new IllegalArgumentException("Can't decrement a GCounter")
-    //PN: could also be written with require
+    require(delta >= 0, "Can't decrement a GCounter")
     if (state.contains(node)) copy(state = state + (node -> (state(node) + delta)))
     else copy(state = state + (node -> delta))
   }
@@ -63,17 +61,17 @@ case class GCounter(
 
   def view: ConvergentReplicatedDataTypeCounterView = GCounterView(id, value)
 
-  override def toJson: JsValue = GCounter.format.writes(this)
+  override def toJson: JsValue = GCounter.Format.writes(this)
 }
 
 object GCounter {
-  implicit object format extends Format[GCounter] {
+  implicit object Format extends Format[GCounter] {
     def reads(json: JsValue): JsResult[GCounter] = JsSuccess(GCounter(
       (json \ "id").as[String],
       (json \ "state").as[Map[String, Int]]))
 
     def writes(counter: GCounter): JsValue = JsObject(Seq(
-      "type" -> JsString(counter.`type`),
+      "type" -> JsString(counter.crdtType),
       "id" -> JsString(counter.id),
       "state" -> Json.toJson(counter.state)))
   }

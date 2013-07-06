@@ -48,27 +48,20 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
       settings.StorageClass, List(
         (classOf[String], nodename),
         (classOf[ConvergentReplicatedDataTypeSettings], settings),
-        (classOf[LoggingAdapter], log))).get // get the instance or throw the error
-  //PN: perhaps a more specific error message here
+        (classOf[LoggingAdapter], log)))
+      .getOrElse(throw new IllegalArgumentException("Could not instantiate Storage class ${settings.StorageClass}"))
 
   // immutable read-view of the current snapshots of members
-  @volatile private var _members: immutable.SortedSet[Member] = immutable.SortedSet.empty[Member]
-  //PN: I think you should keep a Set[Address] instead (you don't care and don't update the status anyway)
-
-  // TODO: perhaps use gossip instead of broadcast using pub/sub?
-  //PN: yes, I think this should be gossip based
-  //    and if I understand this correctly you send the updated value only once, which means that
-  //    things will not be eventually replicated if that message is lost
-  // TODO: perhaps we should write to a (configurable) quorum instead of broadcasting to every node?
+  @volatile private var _members: immutable.Set[Address] = immutable.Set.empty[Address] + Cluster(system).selfAddress
 
   // FIXME: perhaps use common supervisor for the pub/sub actors?
   private val publisher = system.actorOf(Props(classOf[Publisher], settings), name = "crdt:publisher")
   private val subscriber = system.actorOf(Props(classOf[Subscriber], storage), name = "crdt:subscriber")
   private val clusterListener = system.actorOf(Props(new Actor with ActorLogging {
     def receive = {
-      case state: CurrentClusterState ⇒ _members = state.members
-      case MemberUp(member)           ⇒ _members = _members + member
-      case MemberRemoved(member)      ⇒ _members = _members - member
+      case state: CurrentClusterState ⇒ _members = _members ++ state.members.map(_.address)
+      case MemberUp(member)           ⇒ _members = _members + member.address
+      case MemberRemoved(member)      ⇒ _members = _members - member.address
       case _: ClusterDomainEvent      ⇒ // ignore
     }
   }), name = "crdt:clusterListener")
@@ -85,18 +78,19 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
 
   // FIXME: Member has the right hostname but the wrong port (the cluster port) - replacing with configuration value, is this sufficient? 
   def nodes: immutable.Seq[(String, Int)] =
-    _members.toVector map { _.address.host } collect { case Some(host) ⇒ (host, settings.RestServerPort) }
+    _members.toVector map { _.host } collect { case Some(host) ⇒ (host, settings.RestServerPort) }
 
-  def getOrCreate[T <: ConvergentReplicatedDataType: ClassTag](id: String = UUID.randomUUID.toString): Try[T] = Try {
+  def findById[T <: ConvergentReplicatedDataType: ClassTag](id: String = UUID.randomUUID.toString): Try[T] = {
+    storage.findById[T](id)
+  }
+
+  def create[T <: ConvergentReplicatedDataType: ClassTag](id: String = UUID.randomUUID.toString): Try[T] = Try {
+    require(storage.findById[T](id).isFailure, s"Can't create new CvRDT with id = $id - already exists")
     val clazz = implicitly[ClassTag[T]].runtimeClass
-    if (classOf[GCounter].isAssignableFrom(clazz))
-      (storage.findById[GCounter](id) getOrElse update(GCounter(id))).asInstanceOf[T]
-    else if (classOf[PNCounter].isAssignableFrom(clazz))
-      (storage.findById[PNCounter](id) getOrElse update(PNCounter(id))).asInstanceOf[T]
-    else if (classOf[GSet].isAssignableFrom(clazz))
-      (storage.findById[GSet](id) getOrElse update(GSet(id))).asInstanceOf[T]
-    else if (classOf[TwoPhaseSet].isAssignableFrom(clazz))
-      (storage.findById[TwoPhaseSet](id) getOrElse update(TwoPhaseSet(id))).asInstanceOf[T]
+    if (classOf[GCounter].isAssignableFrom(clazz)) update(GCounter(id)).asInstanceOf[T]
+    else if (classOf[PNCounter].isAssignableFrom(clazz)) update(PNCounter(id)).asInstanceOf[T]
+    else if (classOf[GSet].isAssignableFrom(clazz)) update(GSet(id)).asInstanceOf[T]
+    else if (classOf[TwoPhaseSet].isAssignableFrom(clazz)) update(TwoPhaseSet(id)).asInstanceOf[T]
     else throw new ClassCastException(s"Could create new CvRDT with id [$id] and type [$clazz]")
   }
 
@@ -127,8 +121,6 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
     publish(toJson(set))
     newSet
   }
-
-  //PN: would it be possible to make this generic (without knowing all existing CRDT types)?
 
   def shutdown(): Unit = {
     log.info("Shutting down ConvergentReplicatedDataTypeDatabase...")
@@ -184,7 +176,6 @@ class Publisher(settings: ConvergentReplicatedDataTypeSettings) extends Actor wi
       log.debug("Adding JSON to batch {}", jsonString)
       batch = batch :+ jsonString // add to batch    	
       if (batchingWindow.isOverdue) sendBatch() // if batching window is closed - ship batch and reset window
-    //PN: else change receiveTimeout
 
     case ReceiveTimeout ⇒
       sendBatch() // if no messages within batching window - ship batch and reset window
