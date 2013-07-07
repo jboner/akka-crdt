@@ -49,7 +49,7 @@ You can run the REST server in two different ways.
 
 Each CRDT has a read-only JSON view representation which is used in the REST API for querying data. For details on the REST API and the different JSON views see the section with the different CRDT descriptions below. 
 
-The REST client can contact any of the nodes in the cluster to read or write any data. Normally cluster would be deployed with a load balancer in front of it that can balance the load evenly across the cluster. It is possible to ask any server node for the current complete list of nodes to talk to through the `http://url:port/nodes` GET request which will return a list of all the contact points in the cluster: `[{"host":"127.0.0.1","port":9000}]`  Note that this list can/will change dynamically.
+The REST client can contact any of the nodes in the cluster to read or write any data. Normally cluster would be deployed with a load balancer in front of it that can balance the load evenly across the cluster. It is possible to ask any server node for the current complete list of nodes to talk to through the `http://url:port/nodes` GET request which will return a list of all the contact points in the cluster: `[{"host":"127.0.0.1","port":9009}]`  Note that this list can/will change dynamically.
 
 ## Embedded Server
 
@@ -59,16 +59,16 @@ You can create the ``ConvergentReplicatedDataTypeDatabase`` Extension like this 
 val storage = ConvergentReplicatedDataTypeDatabase(context.system)
 ```
 
-Get (or create a new) CRDT by id:
+Create a new CRDT by id:
 
 ```scala
-val nrOfUsers: GCounter = storage.getOrCreate[GCounter]("users")
+val nrOfUsers: Future[GCounter] = storage.create[GCounter]("users")
 ```
 
 Create a new CRDT with a random id:
 
 ```scala
-val nrOfUsers: GCounter = storage.getOrCreate[GCounter]
+val nrOfUsers: Future[GCounter] = storage.create[GCounter]
 ```
 
 Store the updated CRDT:
@@ -99,7 +99,6 @@ CvRDT descriptions below are taken from the [MeanGirls](https://github.com/aphyr
 
 A nice property of CRDTs is that a data structure made up by CRDTs is also a CRDT. Which lets you create rich data structures from simple ones. 
 
-
 ### G-Counter
 
 #### High-Level Description
@@ -116,7 +115,19 @@ counts.
 Create a ``g-counter`` in Scala: 
 
 ```scala
-val nrOfUsers: GCounter = storage.getOrCreate[GCounter]("users")
+val nrOfUsers: Future[GCounter] = storage.create[GCounter]("users")
+```
+
+Find a ``g-counter`` by id in Scala: 
+
+```scala
+val nrOfUsers: Future[GCounter] = storage.findById[GCounter]("users")
+```
+
+Store updates to a ``g-counter`` in Scala: 
+
+```scala
+storage.update(counter)
 ```
 
 Increment the counter by 1: 
@@ -169,21 +180,24 @@ val jsonAsString: String = nrOfUsers.toString
 
 #### REST API
 
-##### GET
-Find g-counter by id, or create it if it does not exist.
-
-//PN: GET should not be side effecting. Correct RESTful HTTP method would 
-be GET to retrieve existing or 404 if not exists and use PUT for creating
-new (if it doesn't exist, PUT should be idempotent)
+##### PUT
+Create g-counter by id.
 
 ```bash
-curl -i -H "Accept: application/json" http://127.0.0.1:9000/g-counter/users
+curl -i -H "Accept: application/json" -X PUT http://127.0.0.1:9009/g-counter/users
 ```
 
 Create a g-counter with a random id.
 
 ```bash
-curl -i -H "Accept: application/json" http://127.0.0.1:9000/g-counter
+curl -i -H "Accept: application/json" -X PUT http://127.0.0.1:9009/g-counter
+```
+
+##### GET
+Find g-counter by id.
+
+```bash
+curl -i -H "Accept: application/json" http://127.0.0.1:9009/g-counter/users
 ```
 
 ##### POST
@@ -192,7 +206,7 @@ Increment the g-counter with 'delta'
 ```bash
 curl -i -H "Accept: application/json" \
     -X POST -d "node=darkstar" -d "delta=1" \
-    http://127.0.0.1:9000/g-counter/users
+    http://127.0.0.1:9009/g-counter/users
 ```
 
 ##### JSON View
@@ -235,7 +249,19 @@ the value of the N counter.
 Create a ``pn-counter`` in Scala: 
 
 ```scala
-val nrOfUsers = storage.getOrCreate[PNCounter]("users")
+val nrOfUsers: Future[PNCounter] = storage.create[PNCounter]("users")
+```
+
+Find a ``pn-counter`` by id in Scala: 
+
+```scala
+val nrOfUsers: Future[PNCounter] = storage.findById[PNCounter]("users")
+```
+
+Store updates to a ``pn-counter`` in Scala: 
+
+```scala
+storage.update(counter)
 ```
 
 Increment the counter by 1: 
@@ -302,17 +328,24 @@ val jsonAsString: String = nrOfUsers.toString
 
 #### REST API
 
-##### GET
-Find pn-counter by id, or create it if it does not exist.
+##### PUT
+Create pn-counter by id.
 
 ```bash
-curl -i -H "Accept: application/json" http://127.0.0.1:9000/pn-counter/users
+curl -i -H "Accept: application/json" -X PUT http://127.0.0.1:9009/pn-counter/users
 ```
 
 Create a pn-counter with a random id.
 
 ```bash
-curl -i -H "Accept: application/json" http://127.0.0.1:9000/pn-counter
+curl -i -H "Accept: application/json" -X PUT http://127.0.0.1:9009/pn-counter
+```
+
+##### GET
+Find pn-counter by id.
+
+```bash
+curl -i -H "Accept: application/json" http://127.0.0.1:9009/pn-counter/users
 ```
 
 ##### POST
@@ -321,7 +354,7 @@ Increment the pn-counter with 'delta' > 0
 ```bash
 curl -i -H "Accept: application/json" \
     -X POST -d "node=darkstar" -d "delta=1" \
-    http://127.0.0.1:9000/pn-counter/users
+    http://127.0.0.1:9009/pn-counter/users
 ```
 
 Decrement the pn-counter with 'delta' < 0
@@ -329,7 +362,7 @@ Decrement the pn-counter with 'delta' < 0
 ```bash
 curl -i -H "Accept: application/json" \
     -X POST -d "node=darkstar" -d "delta=-1" \
-    http://127.0.0.1:9000/pn-counter/users
+    http://127.0.0.1:9009/pn-counter/users
 ```
 
 ##### JSON View
@@ -382,7 +415,19 @@ of type ``JsValue`` (play-json).
 Create a ``g-set`` in Scala: 
 
 ```scala
-val users: GSet = storage.getOrCreate[GSet]("users")
+val users: Future[GSet] = storage.create[GSet]("users")
+```
+
+Find a ``g-set`` by id in Scala: 
+
+```scala
+val users: Future[GSet] = storage.findById[GSet]("users")
+```
+
+Store updates to a ``g-set`` in Scala: 
+
+```scala
+storage.update(set)
 ```
 
 Add JSON element to the set: 
@@ -438,17 +483,24 @@ val jsonAsString: String = users.toString
 
 #### REST API
 
-##### GET
-Find g-set by id, or create it if it does not exist.
+##### PUT
+Create g-set with specific id.
 
 ```bash
-curl -i -H "Accept: application/json" http://127.0.0.1:9000/g-set/users
+curl -i -H "Accept: application/json" -X PUT http://127.0.0.1:9009/g-set/users
 ```
 
-Create a g-set with a random id.
+Create g-set with random id.
 
 ```bash
-curl -i -H "Accept: application/json" http://127.0.0.1:9000/g-set
+curl -i -H "Accept: application/json" -X PUT http://127.0.0.1:9009/g-set
+```
+
+##### GET
+Create g-set by id.
+
+```bash
+curl -i -H "Accept: application/json" http://127.0.0.1:9009/g-set/users
 ```
 
 ##### POST
@@ -457,7 +509,7 @@ Add JSON data to the g-set.
 ```bash
 curl -i -H "Accept: application/json" \
     -X POST -d "node=darkstar" -d "{"username":"john","password":"coltrane"}" \
-    http://127.0.0.1:9000/g-set/users/add
+    http://127.0.0.1:9009/g-set/users/add
 ```
 
 ##### JSON View
@@ -510,7 +562,19 @@ A ``TwoPhaseSet`` can only contain JSON values of type ``JsValue`` (play-json).
 Create a ``2p-set`` in Scala: 
 
 ```scala
-val users: TwoPhaseSet = storage.getOrCreate[TwoPhaseSet]("users")
+val users: Future[TwoPhaseSet] = storage.create[TwoPhaseSet]("users")
+```
+
+Find a ``2p-set`` by id in Scala: 
+
+```scala
+val users: Future[TwoPhaseSet] = storage.findById[TwoPhaseSet]("users")
+```
+
+Store updates to a ``2p-set`` in Scala: 
+
+```scala
+storage.update(set)
 ```
 
 Add JSON element to the set: 
@@ -578,17 +642,24 @@ val jsonAsString: String = users.toString
 
 #### REST API
 
-##### GET
-Find 2p-set by id, or create it if it does not exist.
+##### PUT
+Create 2p-set with specific id.
 
 ```bash
-curl -i -H "Accept: application/json" http://127.0.0.1:9000/2p-set/users
+curl -i -H "Accept: application/json" -X PUT http://127.0.0.1:9009/2p-set/users
 ```
 
-Create a 2p-set with a random id.
+Create 2p-set with random id.
 
 ```bash
-curl -i -H "Accept: application/json" http://127.0.0.1:9000/2p-set
+curl -i -H "Accept: application/json" -X PUT http://127.0.0.1:9009/2p-set
+```
+
+##### GET
+Create 2p-set by id.
+
+```bash
+curl -i -H "Accept: application/json" http://127.0.0.1:9009/2P-Set-set/users
 ```
 
 ##### POST
@@ -597,7 +668,7 @@ Add JSON data to the 2p-set.
 ```bash
 curl -i -H "Accept: application/json" \
     -X POST -d "node=darkstar" -d "{"username":"john","password":"coltrane"}" \
-    http://127.0.0.1:9000/2p-set/users/add
+    http://127.0.0.1:9009/2p-set/users/add
 ```
 
 Remove JSON data from the 2p-set.
@@ -605,7 +676,7 @@ Remove JSON data from the 2p-set.
 ```bash
 curl -i -H "Accept: application/json" \
     -X POST -d "node=darkstar" -d "{"username":"john","password":"coltrane"}" \
-    http://127.0.0.1:9000/2p-set/users/remove
+    http://127.0.0.1:9009/2p-set/users/remove
 ```
         
 ##### JSON View
@@ -692,7 +763,7 @@ akka {
     rest-server {
       run      = on
       hostname = "127.0.0.1"
-      port     = 9000
+      port     = 9009
     }
     convergent {
       batching-window = 10ms
