@@ -25,12 +25,12 @@ trait Storage {
   /**
    * Store a CvRDT.
    */
-  def store(crdt: ConvergentReplicatedDataType): Unit
+  def store(crdt: ConvergentReplicatedDataType): ConvergentReplicatedDataType
 
   /**
    * Store a batch.
    */
-  def store(crdts: immutable.Seq[ConvergentReplicatedDataType]): Unit
+  def store(crdts: immutable.Seq[ConvergentReplicatedDataType]): immutable.Seq[ConvergentReplicatedDataType]
 
   /**
    * Close the database.
@@ -41,4 +41,9 @@ trait Storage {
    * Destroy/Delete/Remove the database.
    */
   def destroy(): Unit = {}
+
+  /**
+   * Returns true if an element with the specified id exists in the storage.
+   */
+  def exists(id: String): Boolean
 }

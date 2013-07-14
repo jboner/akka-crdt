@@ -7,19 +7,17 @@ package akka.crdt.convergent
 import org.scalatest.WordSpec
 import org.scalatest.matchers.MustMatchers
 import org.scalatest.BeforeAndAfter
-
 import akka.actor.ActorSystem
 import akka.actor.Props
 import akka.actor.Actor
 import akka.actor.ActorRef
 import akka.testkit.ImplicitSender
 import akka.testkit.TestKit
-
 import scala.concurrent.duration._
-
 import com.typesafe.config.ConfigFactory
-
 import play.api.libs.json.Json._
+import scala.concurrent.Await
+import scala.concurrent.duration._
 
 class ChangeListenerSpec
   extends TestKit(ActorSystem("ChangeListenerSpec", ConfigFactory.parseString("""
@@ -42,6 +40,8 @@ class ChangeListenerSpec
   case object Kick
 
   val storage = ConvergentReplicatedDataTypeDatabase(system)
+
+  val duration = 10 seconds
 
   val listener = system.actorOf(Props(new Actor {
     override def preStart(): Unit =
@@ -66,7 +66,7 @@ class ChangeListenerSpec
       listener ! Kick // to set the sender
 
       // g-counter
-      val gc1 = storage.create[GCounter]("jonas").get
+      val gc1 = Await.result(storage.create[GCounter]("jonas"), duration)
       expectMsgType[GCounter](10 seconds)
 
       val gc2 = gc1 + "node1"
@@ -74,7 +74,7 @@ class ChangeListenerSpec
       expectMsgType[GCounter](10 seconds)
 
       // pn-counter
-      val pnc1 = storage.create[PNCounter]("jonas").get
+      val pnc1 = Await.result(storage.create[PNCounter]("jonas"), duration)
       expectMsgType[PNCounter](10 seconds)
 
       val pnc2 = pnc1 + "node1"
@@ -86,7 +86,7 @@ class ChangeListenerSpec
       expectMsgType[PNCounter](10 seconds)
 
       // g-set
-      val gs1 = storage.create[GSet]("jonas").get
+      val gs1 = Await.result(storage.create[GSet]("jonas"), duration)
       expectMsgType[GSet](10 seconds)
 
       val gs2 = gs1 + parse("""{"name":"jonas"}""")
@@ -94,7 +94,7 @@ class ChangeListenerSpec
       expectMsgType[GSet](10 seconds)
 
       // 2p-set
-      val tps1 = storage.create[TwoPhaseSet]("jonas").get
+      val tps1 = Await.result(storage.create[TwoPhaseSet]("jonas"), duration)
       expectMsgType[TwoPhaseSet](10 seconds)
 
       val tps2 = tps1 + parse("""{"name":"jonas"}""")

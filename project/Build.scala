@@ -31,20 +31,21 @@ object Resolvers {
 }
 
 object Versions {
-  val AkkaVersion         = "2.2-M3"
+  val AkkaVersion         = "2.2.0-RC2"
   val EventSourcedVersion = "0.5-M2"
 }
 
 object Dependencies {
   import Versions._
   lazy val akkaActor     = "com.typesafe.akka" 				 %% "akka-actor"                % AkkaVersion    % "compile"
-  lazy val akkaCluster   = "com.typesafe.akka"  			 %% "akka-cluster-experimental" % AkkaVersion    % "compile"
+  lazy val akkaCluster   = "com.typesafe.akka"  			 %% "akka-cluster"              % AkkaVersion    % "compile"
   lazy val akkaContrib   = "com.typesafe.akka" 			   %% "akka-contrib"              % AkkaVersion    % "compile"
   lazy val playJson      = "play"              			   %% "play-json"                 % "2.2-SNAPSHOT" % "compile"
+  lazy val levelDbNative = "org.fusesource.leveldbjni" % "leveldbjni-all"             % "1.6.1"        % "compile"
+  lazy val levelDbJava   = "org.iq80.leveldb"          % "leveldb"                    % "0.5"          % "compile"
+
   lazy val unfiltered    = "net.databinder"            %% "unfiltered-netty-server"   % "0.6.8"        % "compile"
   lazy val dispatch      = "net.databinder.dispatch"   %% "dispatch-core"             % "0.10.0"       % "compile"
-  lazy val levelDbNative = "org.fusesource.leveldbjni" % "leveldbjni-all" 						% "1.6.1"  			 % "compile"
-  lazy val levelDbJava   = "org.iq80.leveldb"          % "leveldb"        						% "0.5" 				 % "compile"
   // lazy val eventSourced      = "org.eligosource"   %% "eventsourced-core"          % EventSourcedVersion % "compile"
   // lazy val eventSourcedInMem = "org.eligosource"   %% "eventsourced-journal-inmem" % EventSourcedVersion % "compile"
 
@@ -109,7 +110,7 @@ object ExampleBuild extends Build {
           (Tests.overall(results.values), results)
     }
   )
-  
+
   lazy val formatSettings = SbtScalariform.scalariformSettings ++ Seq(
     ScalariformKeys.preferences in Compile := formattingPreferences,
     ScalariformKeys.preferences in Test    := formattingPreferences

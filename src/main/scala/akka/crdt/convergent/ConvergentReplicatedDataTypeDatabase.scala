@@ -6,17 +6,20 @@ package akka.crdt.convergent
 
 import akka.crdt.RestServer
 import akka.actor._
+import akka.pattern.ask
+import akka.util.Timeout
 import akka.cluster.{ Cluster, Member, ClusterEvent }
 import ClusterEvent._
 import akka.event.{ Logging, LogSource, LoggingAdapter }
 import akka.contrib.pattern.{ DistributedPubSubExtension, DistributedPubSubMediator }
-import DistributedPubSubMediator._
+import DistributedPubSubMediator.{ Put, SendToAll }
 import play.api.libs.json.Json.{ toJson, parse, stringify }
 import play.api.libs.json.JsValue
 import scala.util.Try
 import scala.reflect.ClassTag
 import scala.collection.immutable
 import scala.concurrent.duration._
+import scala.concurrent.Future
 import java.util.UUID
 
 object ConvergentReplicatedDataTypeDatabase
@@ -42,8 +45,9 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
   val log = Logging(sys, ConvergentReplicatedDataTypeDatabase.this)
   val nodename = Cluster(sys).selfAddress.hostPort.replace('@', '_').replace(':', '_')
   val settings = new ConvergentReplicatedDataTypeSettings(system.settings.config, system.name)
+  implicit val queryTimeout: Timeout = Timeout(10 seconds)
 
-  private val storage: Storage =
+  private[akka] val storage: Storage =
     system.dynamicAccess.createInstanceFor[Storage](
       settings.StorageClass, List(
         (classOf[String], nodename),
@@ -56,12 +60,12 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
 
   // FIXME: perhaps use common supervisor for the pub/sub actors?
   private val publisher = system.actorOf(Props(classOf[Publisher], settings), name = "crdt:publisher")
-  private val subscriber = system.actorOf(Props(classOf[Subscriber], storage), name = "crdt:subscriber")
+  private val subscriber = system.actorOf(Props(classOf[Subscriber], this), name = "crdt:subscriber")
   private val clusterListener = system.actorOf(Props(new Actor with ActorLogging {
     def receive = {
       case state: CurrentClusterState ⇒ _members = _members ++ state.members.map(_.address)
       case MemberUp(member)           ⇒ _members = _members + member.address
-      case MemberRemoved(member)      ⇒ _members = _members - member.address
+      case MemberRemoved(member, _)   ⇒ _members = _members - member.address
       case _: ClusterDomainEvent      ⇒ // ignore
     }
   }), name = "crdt:clusterListener")
@@ -76,50 +80,36 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
     Some(rs)
   } else None
 
-  // FIXME: Member has the right hostname but the wrong port (the cluster port) - replacing with configuration value, is this sufficient? 
+  // FIXME: Member has the right hostname but the wrong port (the cluster port) - replacing with configuration value, is this sufficient?
   def nodes: immutable.Seq[(String, Int)] =
     _members.toVector map { _.host } collect { case Some(host) ⇒ (host, settings.RestServerPort) }
 
-  def findById[T <: ConvergentReplicatedDataType: ClassTag](id: String = UUID.randomUUID.toString): Try[T] = {
-    storage.findById[T](id)
+  def findById[T <: ConvergentReplicatedDataType: ClassTag](id: String = UUID.randomUUID.toString): Future[T] = {
+    (subscriber ? Subscriber.FindById(id, implicitly[ClassTag[T]].runtimeClass)).mapTo[T]
   }
 
-  def create[T <: ConvergentReplicatedDataType: ClassTag](id: String = UUID.randomUUID.toString): Try[T] = Try {
-    require(storage.findById[T](id).isFailure, s"Can't create new CvRDT with id = $id - already exists")
-    val clazz = implicitly[ClassTag[T]].runtimeClass
-    if (classOf[GCounter].isAssignableFrom(clazz)) update(GCounter(id)).asInstanceOf[T]
-    else if (classOf[PNCounter].isAssignableFrom(clazz)) update(PNCounter(id)).asInstanceOf[T]
-    else if (classOf[GSet].isAssignableFrom(clazz)) update(GSet(id)).asInstanceOf[T]
-    else if (classOf[TwoPhaseSet].isAssignableFrom(clazz)) update(TwoPhaseSet(id)).asInstanceOf[T]
-    else throw new ClassCastException(s"Could create new CvRDT with id [$id] and type [$clazz]")
+  def create[T <: ConvergentReplicatedDataType: ClassTag](id: String = UUID.randomUUID.toString): Future[T] = {
+    (subscriber ? Subscriber.Create(id, implicitly[ClassTag[T]].runtimeClass)).mapTo[T]
   }
 
   def update(counter: GCounter): GCounter = {
-    val newCounter = storage.findById[GCounter](counter.id) map { _ merge counter } getOrElse { counter } // merge if existing
-    storage.store(newCounter) // store locally first
-    publish(toJson(counter)) // publish to peers 
-    newCounter
+    replicate(toJson(counter))
+    counter
   }
 
   def update(counter: PNCounter): PNCounter = {
-    val newCounter = storage.findById[PNCounter](counter.id) map { _ merge counter } getOrElse { counter }
-    storage.store(newCounter)
-    publish(toJson(counter))
-    newCounter
+    replicate(toJson(counter))
+    counter
   }
 
   def update(set: GSet): GSet = {
-    val newSet = storage.findById[GSet](set.id) map { _ merge set } getOrElse { set }
-    storage.store(newSet)
-    publish(toJson(set))
-    newSet
+    replicate(toJson(set))
+    set
   }
 
   def update(set: TwoPhaseSet): TwoPhaseSet = {
-    val newSet = storage.findById[TwoPhaseSet](set.id) map { _ merge set } getOrElse { set }
-    storage.store(newSet)
-    publish(toJson(set))
-    newSet
+    replicate(toJson(set))
+    set
   }
 
   def shutdown(): Unit = {
@@ -132,7 +122,7 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
     log.info("ConvergentReplicatedDataTypeDatabase shut down successfully")
   }
 
-  private def publish(json: JsValue): Unit = publisher ! json
+  private def replicate(json: JsValue): Unit = publisher ! json
 }
 
 /**
@@ -164,8 +154,17 @@ class Publisher(settings: ConvergentReplicatedDataTypeSettings) extends Actor wi
     if (!batch.isEmpty) { // only send a non-empty batch
       log.debug("Broadcasting changes {}", batch.mkString(", "))
 
-      // FIXME Use 'pubsub ! SendToAll(subscriber, batch, allButSelf = true)' once next release of Akka 2.2 is out.
-      pubsub ! SendToAll(subscriber, batch)
+      // FIXME wait for ACK - if timeout then resend
+
+      // FIXME
+      //    Need explicit connection management - not pubsub
+      //    Send off batch to connection and to an ACK actor that awaits the ACK and resends if needed
+      //    Cluster listener needs to clean up stale connections in the ACK actor
+      //    Create is just a subset of Update - so should not be treated special with direct write to subscriber
+      //         or (now with explicit connections) should both Create and Update perform direct write before replication?
+
+      pubsub ! SendToAll(subscriber, Subscriber.Update(batch), allButSelf = false)
+      //pubsub ! SendToAll(subscriber, Subscriber.Update(batch), allButSelf = true)
     }
     newBatchingWindow()
   }
@@ -174,7 +173,7 @@ class Publisher(settings: ConvergentReplicatedDataTypeSettings) extends Actor wi
     case json: JsValue ⇒
       val jsonString = stringify(json)
       log.debug("Adding JSON to batch {}", jsonString)
-      batch = batch :+ jsonString // add to batch    	
+      batch = batch :+ jsonString // add to batch
       if (batchingWindow.isOverdue) sendBatch() // if batching window is closed - ship batch and reset window
 
     case ReceiveTimeout ⇒
@@ -185,10 +184,20 @@ class Publisher(settings: ConvergentReplicatedDataTypeSettings) extends Actor wi
   }
 }
 
+object Subscriber {
+  // FIXME Create Protobuf messages for these case classes
+  case class Create(id: String, clazz: Class[_])
+  case class FindById(id: String, clazz: Class[_])
+  case class Update(batch: immutable.Seq[_])
+}
+
 /**
  * Subscribing on CRDT changes broadcasted by the Publisher.
  */
-class Subscriber(storage: Storage) extends Actor with ActorLogging {
+class Subscriber(database: ConvergentReplicatedDataTypeDatabase) extends Actor with ActorLogging {
+  import Subscriber._
+  import database.{ update ⇒ replicate, storage }
+
   val pubsub = DistributedPubSubExtension(context.system).mediator
 
   override def preStart(): Unit = {
@@ -197,14 +206,44 @@ class Subscriber(storage: Storage) extends Actor with ActorLogging {
   }
 
   def receive: Receive = {
-    case batch: immutable.Seq[_] ⇒
-      // group CRDTs by type to allow writing batches to native storage in an efficient way
-      var gcounters = immutable.Seq.empty[GCounter]
-      var pncounters = immutable.Seq.empty[PNCounter]
-      var gsets = immutable.Seq.empty[GSet]
-      var twopsets = immutable.Seq.empty[TwoPhaseSet]
+    case Create(id, clazz) ⇒
+      // FIXME this now stores the same CRDT two times in the local storage - once in 'store' and once in 'replicate'
 
-      // TODO can we rewrite this in a functional (yet fast) way? 
+      require(!storage.exists(id), s"Can't create new CvRDT with id = $id - already exists")
+      val crdt =
+        if (classOf[GCounter].isAssignableFrom(clazz)) {
+          val counter = GCounter(id)
+          storage.store(counter)
+          replicate(counter)
+        } else if (classOf[PNCounter].isAssignableFrom(clazz)) {
+          val counter = PNCounter(id)
+          storage.store(counter)
+          replicate(counter)
+        } else if (classOf[GSet].isAssignableFrom(clazz)) {
+          val set = GSet(id)
+          storage.store(set)
+          replicate(set)
+        } else if (classOf[TwoPhaseSet].isAssignableFrom(clazz)) {
+          val set = TwoPhaseSet(id)
+          storage.store(set)
+          replicate(set)
+        } else throw new ClassCastException(s"Could create new CvRDT with id [$id] and type [$clazz]")
+      println("===============>>>>>>>>>>>>>>>>>>>>> STORING CRDT " + crdt)
+      sender ! crdt
+
+    case FindById(id, clazz) ⇒
+      val crdt =
+        if (classOf[GCounter].isAssignableFrom(clazz)) storage.findById[GCounter](id)
+        else if (classOf[PNCounter].isAssignableFrom(clazz)) storage.findById[PNCounter](id)
+        else if (classOf[GSet].isAssignableFrom(clazz)) storage.findById[GSet](id)
+        else if (classOf[TwoPhaseSet].isAssignableFrom(clazz)) storage.findById[TwoPhaseSet](id)
+        else throw new ClassCastException(s"Could create new CvRDT with id [$id] and type [$clazz]")
+      println("===============>>>>>>>>>>>>>>>>>>>>> FOUND CRDT " + crdt)
+      sender ! crdt
+
+    case Update(batch) ⇒
+      var crdts = immutable.Seq.empty[ConvergentReplicatedDataType]
+      // TODO can we rewrite this in a functional (yet fast) way?
       batch foreach { item ⇒
         item match {
           case jsonString: String ⇒
@@ -214,28 +253,28 @@ class Subscriber(storage: Storage) extends Actor with ActorLogging {
               case "g-counter" ⇒
                 val counter = json.as[GCounter]
                 val newCounter = storage.findById[GCounter](counter.id) map { _ merge counter } getOrElse { counter }
-                gcounters = gcounters :+ newCounter
+                crdts = crdts :+ newCounter
                 context.system.eventStream.publish(newCounter)
                 log.debug("Updated g-counter [{}]", newCounter)
 
               case "pn-counter" ⇒
                 val counter = json.as[PNCounter]
                 val newCounter = storage.findById[PNCounter](counter.id) map { _ merge counter } getOrElse { counter }
-                pncounters = pncounters :+ newCounter
+                crdts = crdts :+ newCounter
                 context.system.eventStream.publish(newCounter)
                 log.debug("Updated pn-counter [{}]", newCounter)
 
               case "g-set" ⇒
                 val set = json.as[GSet]
                 val newSet = storage.findById[GSet](set.id) map { _ merge set } getOrElse { set }
-                gsets = gsets :+ newSet
+                crdts = crdts :+ newSet
                 context.system.eventStream.publish(newSet)
                 log.debug("Updated g-set [{}]", newSet)
 
               case "2p-set" ⇒
                 val set = json.as[TwoPhaseSet]
                 val newSet = storage.findById[TwoPhaseSet](set.id) map { _ merge set } getOrElse { set }
-                twopsets = twopsets :+ newSet
+                crdts = crdts :+ newSet
                 context.system.eventStream.publish(newSet)
                 log.debug("Updated 2p-set [{}]", newSet)
 
@@ -243,12 +282,7 @@ class Subscriber(storage: Storage) extends Actor with ActorLogging {
             }
           case _ ⇒ throw new IllegalStateException("Received batch of non-String change sets: should not happen")
         }
-
-        // store the batches
-        if (!gcounters.isEmpty) storage.store(gcounters)
-        if (!pncounters.isEmpty) storage.store(pncounters)
-        if (!gsets.isEmpty) storage.store(gsets)
-        if (!twopsets.isEmpty) storage.store(twopsets)
+        storage.store(crdts)
       }
 
     case unknown ⇒ throw new IllegalStateException(s"Received unknown message: $unknown")

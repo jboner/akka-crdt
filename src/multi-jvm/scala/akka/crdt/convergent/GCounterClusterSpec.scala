@@ -4,18 +4,15 @@
 package akka.crdt.convergent
 
 import akka.remote.testkit.MultiNodeConfig
-
 import akka.crdt._
-
 import akka.remote.testkit.MultiNodeSpec
 import akka.remote.testconductor.RoleName
 import akka.actor._
 import akka.cluster._
-
 import scala.util._
 import scala.concurrent.duration._
-
 import com.typesafe.config.ConfigFactory
+import scala.concurrent.Await
 
 object GCounterClusterSpecConfig extends MultiNodeConfig {
   val node1 = role("node1")
@@ -28,7 +25,7 @@ object GCounterClusterSpecConfig extends MultiNodeConfig {
     akka.cluster.auto-join = off
     akka.cluster.auto-down = on
     akka.loggers = ["akka.testkit.TestEventListener"]
-    akka.loglevel = INFO
+    akka.loglevel = DEBUG
     akka.remote.log-remote-lifecycle-events = off"""))
 }
 
@@ -50,6 +47,9 @@ class GCounterClusterSpec extends MultiNodeSpec(GCounterClusterSpecConfig) with 
       val cluster = Cluster(system)
       val storage = ConvergentReplicatedDataTypeDatabase(system)
 
+      implicit val ec = system.dispatcher
+      val duration = 10 seconds
+
       runOn(node1) { cluster join node1 }
       runOn(node2) { cluster join node1 }
       runOn(node3) { cluster join node1 }
@@ -59,13 +59,17 @@ class GCounterClusterSpec extends MultiNodeSpec(GCounterClusterSpecConfig) with 
 
       // create CRDT on node1
       runOn(node1) {
-        storage.create[GCounter]("jonas").get.value must be(0)
+      	println("-------->>> 1")
+        Await.result(storage.create[GCounter]("jonas"), duration).value must be(0)
+      	println("-------->>> 2")
       }
       enterBarrier("stored g-counter on node1")
 
       // find CRDT by id on the other nodes
-      runOn(node2, node3) {
-        awaitAssert(storage.findById[GCounter]("jonas").get) // wait until it does not throw exception
+      runOn(node1, node2, node3) {
+      	println("-------->>> 3")
+        awaitAssert(Await.result(storage.findById[GCounter]("jonas"), duration)) // wait until it does not throw exception
+      	println("-------->>> 4")
       }
       enterBarrier("g-counter exists on all nodes")
 
@@ -83,7 +87,7 @@ class GCounterClusterSpec extends MultiNodeSpec(GCounterClusterSpecConfig) with 
 
       // make sure each node sees the converged counter value of 3
       runOn(node1, node2, node3) {
-        awaitCond(storage.findById[GCounter]("jonas").get.value == 3, 10 seconds)
+        awaitCond(Await.result(storage.findById[GCounter]("jonas"), duration).value == 3, 10 seconds)
       }
 
       enterBarrier("verified-counter-on-all-nodes")

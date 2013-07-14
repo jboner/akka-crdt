@@ -58,21 +58,25 @@ class LevelDbStorage(
     crdt.asInstanceOf[T]
   }
 
-  def store(crdt: ConvergentReplicatedDataType): Unit = {
+  def store(crdt: ConvergentReplicatedDataType): ConvergentReplicatedDataType = {
     log.debug("Storing CvRDT in LevelDB: {}", crdt)
-    db.put(bytes(crdt.id), bytes(crdt.toString))
+    db.put(bytes(crdt.id), bytes(crdt.toString), levelDbWriteOptions)
+    crdt
   }
 
   /**
    * Store a batch.
    */
-  def store(crdts: immutable.Seq[ConvergentReplicatedDataType]): Unit = {
-    log.debug("Storing batch in LevelDB: {}", crdts.mkString(", "))
-    val batch = db.createWriteBatch()
-    try {
-      crdts foreach { crdt ⇒ batch put (bytes(crdt.id), bytes(crdt.toString)) }
-      db.write(batch, levelDbWriteOptions)
-    } finally batch.close()
+  def store(crdts: immutable.Seq[ConvergentReplicatedDataType]): immutable.Seq[ConvergentReplicatedDataType] = {
+    if (!crdts.isEmpty) {
+      log.debug("Storing batch in LevelDB: {}", crdts.mkString(", "))
+      val batch = db.createWriteBatch()
+      try {
+        crdts foreach { crdt ⇒ batch put (bytes(crdt.id), bytes(crdt.toString)) }
+        db.write(batch, levelDbWriteOptions)
+      } finally batch.close()
+    }
+    crdts
   }
 
   override def close(): Unit = {
@@ -84,6 +88,8 @@ class LevelDbStorage(
     log.info("Destroying LevelDB storage(s)")
     factory.destroy(new File(filename), new Options)
   }
+
+  def exists(id: String): Boolean = db.get(bytes(id)) ne null
 
   private def getElementInDb(id: String): Array[Byte] = {
     val result = db.get(bytes(id))

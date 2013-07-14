@@ -4,18 +4,16 @@
 package akka.crdt.convergent
 
 import akka.remote.testkit.MultiNodeConfig
-
 import akka.crdt._
-
 import akka.remote.testkit.MultiNodeSpec
 import akka.remote.testconductor.RoleName
 import akka.actor._
 import akka.cluster._
-
 import scala.util._
 import scala.concurrent.duration._
-
 import com.typesafe.config.ConfigFactory
+import scala.concurrent.Await
+import akka.util.Timeout
 
 object PNCounterClusterSpecConfig extends MultiNodeConfig {
   val node1 = role("node1")
@@ -24,6 +22,7 @@ object PNCounterClusterSpecConfig extends MultiNodeConfig {
 
   commonConfig(ConfigFactory.parseString("""
     akka.crdt.convergent.leveldb.destroy-on-shutdown = on
+    akka.convergent.batching-window = 10ms
     akka.actor.provider = akka.cluster.ClusterActorRefProvider
     akka.cluster.auto-join = off
     akka.cluster.auto-down = on
@@ -51,22 +50,25 @@ class PNCounterClusterSpec extends MultiNodeSpec(PNCounterClusterSpecConfig) wit
       val cluster = Cluster(system)
       val storage = ConvergentReplicatedDataTypeDatabase(system)
 
+      implicit val ec = system.dispatcher
+      val duration = 10 seconds
+
       runOn(node1) { cluster join node1 }
       runOn(node2) { cluster join node1 }
       runOn(node3) { cluster join node1 }
 
       awaitConnectedSubscribers(initialParticipants)
       enterBarrier("pubsub-fully-connected")
-
+      
       // create CRDT on node1
       runOn(node1) {
-        storage.create[PNCounter]("jonas").get.value must be(0)
+        Await.result(storage.create[PNCounter]("jonas"), duration).value must be(0)
       }
       enterBarrier("stored pn-counter on node1")
 
       // find CRDT by id on the other nodes
       runOn(node2, node3) {
-        awaitAssert(storage.findById[PNCounter]("jonas").get) // wait until it does not throw exception
+        awaitAssert(Await.result(storage.findById[PNCounter]("jonas"), duration)) // wait until it does not throw exception
       }
       enterBarrier("pn-counter exists on all nodes")
 
@@ -85,7 +87,7 @@ class PNCounterClusterSpec extends MultiNodeSpec(PNCounterClusterSpecConfig) wit
 
       // make sure each node sees the converged counter value of 3
       runOn(node1, node2, node3) {
-        awaitCond(storage.findById[PNCounter]("jonas").get.value == 1, 10 seconds)
+        awaitCond(Await.result(storage.findById[PNCounter]("jonas"), 100 millis).value == 1, 10 seconds)
       }
 
       enterBarrier("verified-counter-on-all-nodes")
