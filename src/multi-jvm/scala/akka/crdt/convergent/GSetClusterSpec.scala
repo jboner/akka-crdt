@@ -57,8 +57,7 @@ class GSetClusterSpec extends MultiNodeSpec(GSetClusterSpecConfig) with STMultiN
       runOn(node2) { cluster join node1 }
       runOn(node3) { cluster join node1 }
 
-      awaitConnectedSubscribers(initialParticipants)
-      enterBarrier("pubsub-fully-connected")
+      Thread.sleep(5000)
 
       // create CRDT on node1
       runOn(node1) {

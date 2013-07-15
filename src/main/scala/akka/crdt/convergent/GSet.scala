@@ -37,7 +37,7 @@ case class GSet(
   id: String = UUID.randomUUID.toString,
   private[crdt] val state: Set[JsValue] = Set.empty[JsValue]) extends ConvergentReplicatedDataTypeSet {
 
-  val crdtType: String = "g-set"
+  override val crdtType: String = GSet.crdtType
 
   def +(element: JsValue): GSet = GSet(id, state + element)
 
@@ -51,6 +51,8 @@ case class GSet(
 }
 
 object GSet {
+  val crdtType: String = "g-set"
+
   implicit object Format extends Format[GSet] {
     def reads(json: JsValue): JsResult[GSet] = JsSuccess(GSet(
       (json \ "id").as[String],

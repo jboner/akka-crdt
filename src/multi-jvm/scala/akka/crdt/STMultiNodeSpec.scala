@@ -22,15 +22,6 @@ trait STMultiNodeSpec
   with BeforeAndAfterAll
   with ImplicitSender { this: MultiNodeSpec ⇒
 
-  def awaitConnectedSubscribers(expected: Int): Unit = {
-    val timeout: FiniteDuration = 30.seconds
-    awaitAssert(
-      {
-        DistributedPubSubExtension(system).mediator ! DistributedPubSubMediator.Count
-        expectMsgType[Int](100.millis) must be(expected)
-      }, max = timeout)
-  }
-
   override def beforeAll() = multiNodeSpecBeforeAll()
   override def afterAll() = multiNodeSpecAfterAll()
 }

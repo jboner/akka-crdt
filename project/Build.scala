@@ -24,68 +24,29 @@ object BuildSettings {
 }
 
 object Resolvers {
-  val eligosourceReleasesRepo  = "Eligosource Releases Repo"  at "http://repo.eligotech.com/nexus/content/repositories/eligosource-releases/"
-  val eligosourceSnapshotsRepo = "Eligosource Snapshots Repo" at "http://repo.eligotech.com/nexus/content/repositories/eligosource-snapshots/"
-  val sonatypeSnapshots        = "Sonatype Snapshots Repo"    at "https://oss.sonatype.org/content/groups/public"
-  val playJsonSnapshots        = "Temporary Play JSON repo"   at "https://github.com/mandubian/mandubian-mvn/raw/master/snapshots/"
+  val sonatypeSnapshots = "Sonatype Snapshots Repo"  at "https://oss.sonatype.org/content/groups/public"
+  val playJsonSnapshots = "Temporary Play JSON repo" at "https://github.com/mandubian/mandubian-mvn/raw/master/snapshots/"
 }
 
 object Versions {
-  val AkkaVersion         = "2.2.0-RC2"
-  val EventSourcedVersion = "0.5-M2"
+  val AkkaVersion = "2.2.0"
 }
 
 object Dependencies {
   import Versions._
-  lazy val akkaActor     = "com.typesafe.akka" 				 %% "akka-actor"                % AkkaVersion    % "compile"
-  lazy val akkaCluster   = "com.typesafe.akka"  			 %% "akka-cluster"              % AkkaVersion    % "compile"
-  lazy val akkaContrib   = "com.typesafe.akka" 			   %% "akka-contrib"              % AkkaVersion    % "compile"
-  lazy val playJson      = "play"              			   %% "play-json"                 % "2.2-SNAPSHOT" % "compile"
-  lazy val levelDbNative = "org.fusesource.leveldbjni" % "leveldbjni-all"             % "1.6.1"        % "compile"
-  lazy val levelDbJava   = "org.iq80.leveldb"          % "leveldb"                    % "0.5"          % "compile"
-
-  lazy val unfiltered    = "net.databinder"            %% "unfiltered-netty-server"   % "0.6.8"        % "compile"
-  lazy val dispatch      = "net.databinder.dispatch"   %% "dispatch-core"             % "0.10.0"       % "compile"
-  // lazy val eventSourced      = "org.eligosource"   %% "eventsourced-core"          % EventSourcedVersion % "compile"
-  // lazy val eventSourcedInMem = "org.eligosource"   %% "eventsourced-journal-inmem" % EventSourcedVersion % "compile"
-
-  lazy val scalaTest         = "org.scalatest"     %% "scalatest"         % "1.9.1"     % "test"
-  lazy val akkaMultiNodeTest = "com.typesafe.akka" %% "akka-remote-tests" % AkkaVersion % "test"
+  lazy val akkaActor     		 = "com.typesafe.akka" 				 %% "akka-actor"                % AkkaVersion    % "compile"
+  lazy val akkaCluster   		 = "com.typesafe.akka"  			 %% "akka-cluster"              % AkkaVersion    % "compile"
+  lazy val akkaContrib   		 = "com.typesafe.akka" 			   %% "akka-contrib"              % AkkaVersion    % "compile"
+  lazy val playJson      		 = "play"              			   %% "play-json"                 % "2.2-SNAPSHOT" % "compile"
+  lazy val levelDbNative 		 = "org.fusesource.leveldbjni" % "leveldbjni-all"             % "1.6.1"        % "compile"
+  lazy val levelDbJava   		 = "org.iq80.leveldb"          % "leveldb"                    % "0.5"          % "compile"
+  lazy val unfiltered    		 = "net.databinder"            %% "unfiltered-netty-server"   % "0.6.8"        % "compile"
+  lazy val dispatch          = "net.databinder.dispatch"   %% "dispatch-core"             % "0.10.0"       % "compile"
+  lazy val scalaTest         = "org.scalatest"     				 %% "scalatest"         				% "1.9.1"     	 % "test"
+  lazy val akkaMultiNodeTest = "com.typesafe.akka" 				 %% "akka-remote-tests" 				% AkkaVersion    % "test"
 }
 
-object Nobootcp {
-  import java.io.File._
-
-  def runNobootcpInputTask(configuration: Configuration) = inputTask {
-    (argTask: TaskKey[Seq[String]]) => (argTask, streams, fullClasspath in configuration) map { (at, st, cp) =>
-      val runCp = cp.map(_.data).mkString(pathSeparator)
-      val runOpts = Seq("-classpath", runCp) ++ at
-      val result = Fork.java.fork(None, runOpts, None, Map(), true, StdoutOutput).exitValue()
-      if (result != 0) sys.error("Run failed")
-    }
-  }
-
-  val testNobootcpSettings = test <<= (streams, productDirectories in Test, fullClasspath in Test) map { (st, pd, cp) =>
-    val testCp = cp.map(_.data).mkString(pathSeparator)
-    val testExec = "org.scalatest.tools.Runner"
-    val testPath = pd(0).toString
-    val testOpts = Seq("-classpath", testCp, testExec, "-R", testPath, "-o")
-    val result = Fork.java.fork(None, testOpts, None, Map(), false, LoggedOutput(st.log)).exitValue()
-    if (result != 0) sys.error("Tests failed")
-  }
-
-  val runNobootcp = InputKey[Unit]("run-nobootcp", "Runs main classes without Scala library on the boot classpath")
-
-  val mainRunNobootcpSettings = runNobootcp <<= runNobootcpInputTask(Runtime)
-  val testRunNobootcpSettings = runNobootcp <<= runNobootcpInputTask(Test)
-
-  lazy val settings =
-    mainRunNobootcpSettings ++
-    testRunNobootcpSettings ++
-    testNobootcpSettings
-}
-
-object ExampleBuild extends Build {
+object CRDTBuild extends Build {
   import BuildSettings._
   import Resolvers._
   import Dependencies._
@@ -119,8 +80,8 @@ object ExampleBuild extends Build {
   def formattingPreferences = {
     import scalariform.formatter.preferences._
     FormattingPreferences()
-    .setPreference(RewriteArrowSymbols, true)
-    .setPreference(AlignParameters, true)
-    .setPreference(AlignSingleLineCaseStatements, true)
+	    .setPreference(RewriteArrowSymbols, true)
+	    .setPreference(AlignParameters, true)
+	    .setPreference(AlignSingleLineCaseStatements, true)
   }
 }

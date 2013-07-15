@@ -121,13 +121,6 @@ class CvRDTPlan(storage: ConvergentReplicatedDataTypeDatabase)
           req.respond(textResponse("pong"))
 
         // =================================================================
-        // server nodes
-        // =================================================================
-        case GET(Path("/nodes")) ⇒
-          val nodes = storage.nodes map { node ⇒ Json.obj("host" -> node._1, "port" -> node._2) }
-          req.respond(textResponse(stringify(toJson(nodes))))
-
-        // =================================================================
         // g-counter
         // =================================================================
         case PUT(Path(Seg("g-counter" :: Nil))) ⇒

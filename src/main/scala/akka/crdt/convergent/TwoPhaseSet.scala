@@ -43,7 +43,7 @@ case class TwoPhaseSet(
   private[crdt] val adds: GSet,
   private[crdt] val removes: GSet) extends ConvergentReplicatedDataTypeSet {
 
-  val crdtType: String = "2p-set"
+  override val crdtType: String = TwoPhaseSet.crdtType
 
   def +(element: JsValue): TwoPhaseSet = {
     if ((adds contains element) && (removes contains element)) throw new IllegalStateException(s"Can not add $element - already removed from set") // was previously removed
@@ -66,6 +66,8 @@ case class TwoPhaseSet(
 }
 
 object TwoPhaseSet {
+  val crdtType: String = "2p-set"
+
   def apply(): TwoPhaseSet = {
     apply(UUID.randomUUID.toString)
   }

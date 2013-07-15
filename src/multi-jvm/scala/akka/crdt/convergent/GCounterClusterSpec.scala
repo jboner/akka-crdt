@@ -54,22 +54,17 @@ class GCounterClusterSpec extends MultiNodeSpec(GCounterClusterSpecConfig) with 
       runOn(node2) { cluster join node1 }
       runOn(node3) { cluster join node1 }
 
-      awaitConnectedSubscribers(initialParticipants)
-      enterBarrier("pubsub-fully-connected")
+      Thread.sleep(5000)
 
       // create CRDT on node1
       runOn(node1) {
-      	println("-------->>> 1")
         Await.result(storage.create[GCounter]("jonas"), duration).value must be(0)
-      	println("-------->>> 2")
       }
       enterBarrier("stored g-counter on node1")
 
       // find CRDT by id on the other nodes
       runOn(node1, node2, node3) {
-      	println("-------->>> 3")
         awaitAssert(Await.result(storage.findById[GCounter]("jonas"), duration)) // wait until it does not throw exception
-      	println("-------->>> 4")
       }
       enterBarrier("g-counter exists on all nodes")
 

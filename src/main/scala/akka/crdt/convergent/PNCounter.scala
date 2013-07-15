@@ -42,7 +42,7 @@ case class PNCounter private (
   private[crdt] val increments: GCounter,
   private[crdt] val decrements: GCounter) extends ConvergentReplicatedDataTypeCounter {
 
-  val crdtType: String = "pn-counter"
+  override val crdtType: String = PNCounter.crdtType
 
   def value: Int = increments.value - decrements.value
 
@@ -70,6 +70,7 @@ case class PNCounter private (
 }
 
 object PNCounter {
+  val crdtType: String = "pn-counter"
 
   def apply(): PNCounter = {
     apply(UUID.randomUUID.toString)

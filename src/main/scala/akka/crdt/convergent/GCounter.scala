@@ -42,7 +42,7 @@ case class GCounter(
   id: String = UUID.randomUUID.toString,
   private[crdt] val state: Map[String, Int] = Map.empty[String, Int]) extends ConvergentReplicatedDataTypeCounter {
 
-  override val crdtType: String = "g-counter"
+  override val crdtType: String = GCounter.crdtType
 
   def value: Int = state.values.sum
 
@@ -65,6 +65,8 @@ case class GCounter(
 }
 
 object GCounter {
+  val crdtType: String = "g-counter"
+
   implicit object Format extends Format[GCounter] {
     def reads(json: JsValue): JsResult[GCounter] = JsSuccess(GCounter(
       (json \ "id").as[String],

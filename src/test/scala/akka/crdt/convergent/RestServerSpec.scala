@@ -10,10 +10,10 @@ import org.scalatest.BeforeAndAfterAll
 import akka.testkit.TestKit
 import akka.actor.ActorSystem
 import unfiltered.netty._
-import com.typesafe.config.ConfigFactory
+import unfiltered.request.PUT
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import unfiltered.request.PUT
+import com.typesafe.config.ConfigFactory
 
 class RestServerSpec extends WordSpec with MustMatchers with BeforeAndAfterAll {
 
@@ -63,15 +63,6 @@ class RestServerSpec extends WordSpec with MustMatchers with BeforeAndAfterAll {
     }
 
     // =================================================================
-    // nodes
-    // =================================================================
-
-    "be able to return a list with (hostname, port) for all REST servers" in {
-      val result = Await.result(Http(newURL / "nodes" OK as.String), timeout).trim()
-      result must be("""[{"host":"127.0.0.1","port":9009}]""")
-    }
-
-    // =================================================================
     // g-counter
     // =================================================================
 
@@ -116,15 +107,15 @@ class RestServerSpec extends WordSpec with MustMatchers with BeforeAndAfterAll {
     }
 
     "be able to increment a pn-counter" in {
-      val response = Http((newURL / "pn-counter" / "users2").POST <<? Map("node" -> "node1", "delta" -> "1") <:< Map("Content-type" -> "application/text") OK as.String)
+      val response = Http((newURL / "pn-counter" / "users1").POST <<? Map("node" -> "node1", "delta" -> "1") <:< Map("Content-type" -> "application/text") OK as.String)
       val result = Await.result(response, timeout).trim()
-      result must be("""{"type":"counter","id":"users2","value":1}""")
+      result must be("""{"type":"counter","id":"users1","value":1}""")
     }
 
     "be able to decrement a pn-counter" in {
-      val response = Http((newURL / "pn-counter" / "users3").POST <<? Map("node" -> "node3", "delta" -> "-1") <:< Map("Content-type" -> "application/text") OK as.String)
+      val response = Http((newURL / "pn-counter" / "users1").POST <<? Map("node" -> "node3", "delta" -> "-1") <:< Map("Content-type" -> "application/text") OK as.String)
       val result = Await.result(response, timeout).trim()
-      result must be("""{"type":"counter","id":"users3","value":-1}""")
+      result must be("""{"type":"counter","id":"users1","value":0}""")
     }
 
     // =================================================================
@@ -148,9 +139,9 @@ class RestServerSpec extends WordSpec with MustMatchers with BeforeAndAfterAll {
 
     "be able to add a JSON value to a g-set" in {
       val userValue = """{"username":"john","password":"coltrane"}"""
-      val response = Http((newURL / "g-set" / "users2" / "add") << userValue <:< Map("Content-type" -> "application/json") OK as.String)
+      val response = Http((newURL / "g-set" / "users1" / "add") << userValue <:< Map("Content-type" -> "application/json") OK as.String)
       val result = Await.result(response, timeout).trim()
-      result must be("""{"type":"set","id":"users2","value":[{"username":"john","password":"coltrane"}]}""")
+      result must be("""{"type":"set","id":"users1","value":[{"username":"john","password":"coltrane"}]}""")
     }
 
     "be able to add an invalid JSON value to a g-set" in {
@@ -183,28 +174,25 @@ class RestServerSpec extends WordSpec with MustMatchers with BeforeAndAfterAll {
 
     "be able to add a JSON value to a 2p-set" in {
       val userValue = """{"username":"john","password":"coltrane"}"""
-      val response = Http((newURL / "2p-set" / "users2" / "add") << userValue <:< Map("Content-type" -> "application/json") OK as.String)
+      val response = Http((newURL / "2p-set" / "users1" / "add") << userValue <:< Map("Content-type" -> "application/json") OK as.String)
       val result = Await.result(response, timeout).trim()
-      result must be("""{"type":"set","id":"users2","value":[{"username":"john","password":"coltrane"}]}""")
+      result must be("""{"type":"set","id":"users1","value":[{"username":"john","password":"coltrane"}]}""")
     }
 
     "be able to remove a JSON value from a 2p-set" in {
       val userValue = """{"username":"john","password":"coltrane"}"""
-      val response1 = Http((newURL / "2p-set" / "users3" / "add") << userValue <:< Map("Content-type" -> "application/json") OK as.String)
-      val result1 = Await.result(response1, timeout).trim()
-      result1 must be("""{"type":"set","id":"users3","value":[{"username":"john","password":"coltrane"}]}""")
-      val response2 = Http((newURL / "2p-set" / "users3" / "remove") << userValue <:< Map("Content-type" -> "application/json") OK as.String)
+      val response2 = Http((newURL / "2p-set" / "users1" / "remove") << userValue <:< Map("Content-type" -> "application/json") OK as.String)
       val result2 = Await.result(response2, timeout).trim()
-      result2 must be("""{"type":"set","id":"users3","value":[]}""")
+      result2 must be("""{"type":"set","id":"users1","value":[]}""")
     }
 
-    //    "be able to add an invalid JSON value to a 2p-set" in {
-    //      val userValue = """{"username":"john","password":"coltrane}"""
-    //      val response = Http((newURL / "2p-set" / "users4" / "add") << userValue <:< Map("Content-type" -> "application/json"))
-    //      val result = Await.result(response, timeout)
-    //      result.getResponseBody() must startWith("org.codehaus.jackson.JsonParseException: Unexpected end-of-input: was expecting closing quote for a string value")
-    //      result.getStatusCode() must be(400)
-    //      result.getStatusText() must be("Bad Request")
-    //    }
+    "be able to add an invalid JSON value to a 2p-set" in {
+      val userValue = """{"username":"john","password":"coltrane}"""
+      val response = Http((newURL / "2p-set" / "users1" / "add") << userValue <:< Map("Content-type" -> "application/json"))
+      val result = Await.result(response, timeout)
+      result.getResponseBody() must startWith("org.codehaus.jackson.JsonParseException: Unexpected end-of-input: was expecting closing quote for a string value")
+      result.getStatusCode() must be(400)
+      result.getStatusText() must be("Bad Request")
+    }
   }
 }
