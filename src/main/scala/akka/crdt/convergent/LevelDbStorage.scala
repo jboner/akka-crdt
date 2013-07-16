@@ -49,13 +49,13 @@ class LevelDbStorage(
     val clazz = implicitly[ClassTag[T]].runtimeClass
     val crdt =
       if (classOf[GCounter].isAssignableFrom(clazz)) {
-        toJson(getElementInDb(GCounter.crdtType, id)).as[GCounter]
+        toJson(getElementInDb(GCounter.dataType, id)).as[GCounter]
       } else if (classOf[PNCounter].isAssignableFrom(clazz)) {
-        toJson(getElementInDb(PNCounter.crdtType, id)).as[PNCounter]
+        toJson(getElementInDb(PNCounter.dataType, id)).as[PNCounter]
       } else if (classOf[GSet].isAssignableFrom(clazz)) {
-        toJson(getElementInDb(GSet.crdtType, id)).as[GSet]
+        toJson(getElementInDb(GSet.dataType, id)).as[GSet]
       } else if (classOf[TwoPhaseSet].isAssignableFrom(clazz)) {
-        toJson(getElementInDb(TwoPhaseSet.crdtType, id)).as[TwoPhaseSet]
+        toJson(getElementInDb(TwoPhaseSet.dataType, id)).as[TwoPhaseSet]
       } else throw new ClassCastException(s"Could create new CvRDT with id [$id] and type [$clazz]")
     log.debug("Finding CvRDT in LevelDB: {}", crdt)
     crdt.asInstanceOf[T]
@@ -63,7 +63,7 @@ class LevelDbStorage(
 
   def store(crdt: ConvergentReplicatedDataType): ConvergentReplicatedDataType = {
     log.debug("Storing CvRDT in LevelDB: {}", crdt)
-    db.put(bytes(createKey(crdt.crdtType, crdt.id)), bytes(crdt.toString), levelDbWriteOptions)
+    db.put(bytes(createKey(crdt.dataType, crdt.id)), bytes(crdt.toString), levelDbWriteOptions)
     crdt
   }
 
@@ -75,7 +75,7 @@ class LevelDbStorage(
       log.debug("Storing batch in LevelDB: {}", crdts.mkString(", "))
       val batch = db.createWriteBatch()
       try {
-        crdts foreach { crdt ⇒ batch put (bytes(crdt.crdtType + "/" + crdt.id), bytes(crdt.toString)) }
+        crdts foreach { crdt ⇒ batch put (bytes(crdt.dataType + "/" + crdt.id), bytes(crdt.toString)) }
         db.write(batch, levelDbWriteOptions)
       } finally batch.close()
     }
@@ -94,13 +94,13 @@ class LevelDbStorage(
 
   def exists(id: String): Boolean = db.get(bytes(id)) ne null
 
-  private def getElementInDb(crdtType: String, id: String): Array[Byte] = {
-    val result = db.get(bytes(createKey(crdtType, id)))
+  private def getElementInDb(dataType: String, id: String): Array[Byte] = {
+    val result = db.get(bytes(createKey(dataType, id)))
     if (result eq null) throw new StorageException(s"Element with id = '$id' does not exists in database")
     result
   }
 
-  private def createKey(crdtType: String, id: String): String = crdtType + "/" + id
+  private def createKey(dataType: String, id: String): String = dataType + "/" + id
 
   private def toJson(bytes: Array[Byte]): JsValue = parse(asString(bytes))
 }

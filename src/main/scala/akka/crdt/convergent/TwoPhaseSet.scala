@@ -5,30 +5,10 @@
 package akka.crdt.convergent
 
 import scala.collection.immutable
-
 import play.api.libs.json._
-
 import java.util.UUID
-
-/**
- * Implements a snapshot view of the TwoPhaseSet.
- */
-case class TwoPhaseSetView(id: String, value: Set[JsValue]) extends ConvergentReplicatedDataTypeCounterView {
-  def toJson: JsValue = TwoPhaseSetView.Format.writes(this)
-}
-
-object TwoPhaseSetView {
-  implicit object Format extends Format[TwoPhaseSetView] {
-    def reads(json: JsValue): JsResult[TwoPhaseSetView] = JsSuccess(TwoPhaseSetView(
-      (json \ "id").as[String],
-      (json \ "value").as[Set[JsValue]]))
-
-    def writes(set: TwoPhaseSetView): JsValue = JsObject(Seq(
-      "type" -> JsString("set"),
-      "id" -> JsString(set.id),
-      "value" -> Json.toJson(set.value)))
-  }
-}
+import ConvergentReplicatedDataType._
+import akka.actor.ActorSystem
 
 /**
  * Implements a ConvergentReplicatedDataType 'Two Phase Set' also called a '2P-Set'.
@@ -41,9 +21,9 @@ object TwoPhaseSetView {
 case class TwoPhaseSet(
   id: String,
   private[crdt] val adds: GSet,
-  private[crdt] val removes: GSet) extends ConvergentReplicatedDataTypeSet {
+  private[crdt] val removes: GSet) extends Set {
 
-  override val crdtType: String = TwoPhaseSet.crdtType
+  override val dataType: String = TwoPhaseSet.dataType
 
   def +(element: JsValue): TwoPhaseSet = {
     if ((adds contains element) && (removes contains element)) throw new IllegalStateException(s"Can not add $element - already removed from set") // was previously removed
@@ -60,13 +40,15 @@ case class TwoPhaseSet(
 
   def value: immutable.Set[JsValue] = adds.value -- removes.value
 
-  def view: ConvergentReplicatedDataTypeCounterView = TwoPhaseSetView(id, value)
+  def view: View = TwoPhaseSetView(id, value)
+
+  def store(implicit system: ActorSystem): Unit = ConvergentReplicatedDataTypeDatabase(system).update(this)
 
   override def toJson: JsValue = TwoPhaseSet.Format.writes(this)
 }
 
 object TwoPhaseSet {
-  val crdtType: String = "2p-set"
+  val dataType: String = "2p-set"
 
   def apply(): TwoPhaseSet = {
     apply(UUID.randomUUID.toString)
@@ -83,9 +65,30 @@ object TwoPhaseSet {
       (json \ "removes").as[GSet]))
 
     def writes(set: TwoPhaseSet): JsValue = JsObject(Seq(
-      "type" -> JsString(set.crdtType),
+      "type" -> JsString(set.dataType),
       "id" -> JsString(set.id),
       "adds" -> Json.toJson(set.adds),
       "removes" -> Json.toJson(set.removes)))
   }
 }
+
+/**
+ * Implements a snapshot view of the TwoPhaseSet.
+ */
+case class TwoPhaseSetView(id: String, value: immutable.Set[JsValue]) extends View {
+  def toJson: JsValue = TwoPhaseSetView.Format.writes(this)
+}
+
+object TwoPhaseSetView {
+  implicit object Format extends Format[TwoPhaseSetView] {
+    def reads(json: JsValue): JsResult[TwoPhaseSetView] = JsSuccess(TwoPhaseSetView(
+      (json \ "id").as[String],
+      (json \ "value").as[immutable.Set[JsValue]]))
+
+    def writes(set: TwoPhaseSetView): JsValue = JsObject(Seq(
+      "type" -> JsString("set"),
+      "id" -> JsString(set.id),
+      "value" -> Json.toJson(set.value)))
+  }
+}
+

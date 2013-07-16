@@ -91,9 +91,9 @@ class GSetClusterSpec extends MultiNodeSpec(GSetClusterSpecConfig) with STMultiN
       // make sure each node sees the converged set with all the users
       runOn(node1, node2, node3) {
         awaitCond(Await.result(storage.findById[GSet]("users"), duration).value.size == 3, 10 seconds)
-        storage.findById[GSet]("users") foreach { set => 
+        storage.findById[GSet]("users") foreach { set =>
           set.id must be("users")
-          set.crdtType must be("g-set")
+          set.dataType must be("g-set")
           val usersAsStrings = set.value.map(stringify(_))
           usersAsStrings.contains(coltrane) must be(true)
           usersAsStrings.contains(rollins) must be(true)
@@ -102,7 +102,7 @@ class GSetClusterSpec extends MultiNodeSpec(GSetClusterSpecConfig) with STMultiN
       }
 
       enterBarrier("verified-set-on-all-nodes")
-      
+
       storage.shutdown()
       enterBarrier("after-shutdown")
     }

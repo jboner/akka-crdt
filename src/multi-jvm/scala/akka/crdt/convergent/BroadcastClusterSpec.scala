@@ -49,7 +49,7 @@ class BroadcastClusterSpec extends MultiNodeSpec(BroadcastClusterSpecConfig) wit
 
       implicit val ec = system.dispatcher
       val duration = 10 seconds
-      
+
       runOn(node1) { cluster join node1 }
       runOn(node2) { cluster join node1 }
       runOn(node3) { cluster join node1 }
@@ -68,7 +68,7 @@ class BroadcastClusterSpec extends MultiNodeSpec(BroadcastClusterSpecConfig) wit
 				awaitAssert(Await.result(storage.findById[GCounter]("jonas"), duration))
         storage.findById[GCounter]("jonas") foreach { counter =>
           counter.id must be("jonas")
-          counter.crdtType must be("g-counter")
+          counter.dataType must be("g-counter")
         }
       }
       enterBarrier("replicated g-counter from node1")
@@ -84,11 +84,11 @@ class BroadcastClusterSpec extends MultiNodeSpec(BroadcastClusterSpecConfig) wit
         awaitAssert(Await.result(storage.findById[GCounter]("viktor"), duration))
         storage.findById[GCounter]("viktor") foreach { counter =>
           counter.id must be("viktor")
-          counter.crdtType must be("g-counter")
+          counter.dataType must be("g-counter")
         }
       }
       enterBarrier("replicated g-counter from node2")
-      
+
       storage.shutdown()
       enterBarrier("after-shutdown")
     }
