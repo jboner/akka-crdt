@@ -58,7 +58,7 @@ class GCounterClusterSpec extends MultiNodeSpec(GCounterClusterSpecConfig) with 
 
       // create CRDT on node1
       runOn(node1) {
-        Await.result(storage.create[GCounter]("jonas"), duration).value must be(0)
+        storage.create[GCounter]("jonas").value must be(0)
       }
       enterBarrier("stored g-counter on node1")
 

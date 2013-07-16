@@ -66,7 +66,7 @@ class ChangeListenerSpec
       listener ! Kick // to set the sender
 
       // g-counter
-      val gc1 = Await.result(storage.create[GCounter]("jonas"), duration)
+      val gc1 = storage.create[GCounter]("jonas")
       expectMsgType[GCounter](10 seconds)
 
       val gc2 = gc1 + "node1"
@@ -74,7 +74,7 @@ class ChangeListenerSpec
       expectMsgType[GCounter](10 seconds)
 
       // pn-counter
-      val pnc1 = Await.result(storage.create[PNCounter]("jonas"), duration)
+      val pnc1 = storage.create[PNCounter]("jonas")
       expectMsgType[PNCounter](10 seconds)
 
       val pnc2 = pnc1 + "node1"
@@ -86,7 +86,7 @@ class ChangeListenerSpec
       expectMsgType[PNCounter](10 seconds)
 
       // g-set
-      val gs1 = Await.result(storage.create[GSet]("jonas"), duration)
+      val gs1 = storage.create[GSet]("jonas")
       expectMsgType[GSet](10 seconds)
 
       val gs2 = gs1 + parse("""{"name":"jonas"}""")
@@ -94,7 +94,7 @@ class ChangeListenerSpec
       expectMsgType[GSet](10 seconds)
 
       // 2p-set
-      val tps1 = Await.result(storage.create[TwoPhaseSet]("jonas"), duration)
+      val tps1 = storage.create[TwoPhaseSet]("jonas")
       expectMsgType[TwoPhaseSet](10 seconds)
 
       val tps2 = tps1 + parse("""{"name":"jonas"}""")

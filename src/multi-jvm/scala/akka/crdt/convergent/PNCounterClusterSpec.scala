@@ -61,7 +61,7 @@ class PNCounterClusterSpec extends MultiNodeSpec(PNCounterClusterSpecConfig) wit
       
       // create CRDT on node1
       runOn(node1) {
-        Await.result(storage.create[PNCounter]("jonas"), duration).value must be(0)
+        storage.create[PNCounter]("jonas").value must be(0)
       }
       enterBarrier("stored pn-counter on node1")
 

@@ -61,7 +61,7 @@ class TwoPhaseSetClusterSpec extends MultiNodeSpec(TwoPhaseSetClusterSpecConfig)
 
       // create CRDT on node1
       runOn(node1) {
-        Await.result(storage.create[TwoPhaseSet]("users"), duration).value.size must be(0)
+        storage.create[TwoPhaseSet]("users").size must be(0)
       }
       enterBarrier("stored 2p-set on node1")
 

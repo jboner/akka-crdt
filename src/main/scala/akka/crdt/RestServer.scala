@@ -125,14 +125,14 @@ class CvRDTPlan(storage: ConvergentReplicatedDataTypeDatabase)
         // =================================================================
         case PUT(Path(Seg("g-counter" :: Nil))) ⇒
           async {
-            storage.create[GCounter]() map { counter ⇒
+            future { storage.create[GCounter]() } map { counter ⇒
               jsonResponse(s"Successfully created g-counter with id = '${counter.id}'")
             }
           }
 
         case PUT(Path(Seg("g-counter" :: id :: Nil))) ⇒
           async {
-            storage.create[GCounter](id) map { counter ⇒
+            future { storage.create[GCounter](id) } map { counter ⇒
               jsonResponse(s"Successfully created g-counter with id = '${counter.id}'")
             }
           }
@@ -173,14 +173,14 @@ class CvRDTPlan(storage: ConvergentReplicatedDataTypeDatabase)
         // =================================================================
         case PUT(Path(Seg("pn-counter" :: Nil))) ⇒
           async {
-            storage.create[PNCounter]() map { counter ⇒
+            future { storage.create[PNCounter]() } map { counter ⇒
               jsonResponse(s"Successfully created pn-counter with id = '${counter.id}'")
             }
           }
 
         case PUT(Path(Seg("pn-counter" :: id :: Nil))) ⇒
           async {
-            storage.create[PNCounter](id) map { counter ⇒
+            future { storage.create[PNCounter](id) } map { counter ⇒
               jsonResponse(s"Successfully created pn-counter with id = '${counter.id}'")
             }
           }
@@ -220,14 +220,14 @@ class CvRDTPlan(storage: ConvergentReplicatedDataTypeDatabase)
         // =================================================================
         case PUT(Path(Seg("g-set" :: Nil))) ⇒
           async {
-            storage.create[GSet]() map { set ⇒
+            future { storage.create[GSet]() } map { set ⇒
               jsonResponse(s"Successfully created g-set with id = '${set.id}'")
             }
           }
 
         case PUT(Path(Seg("g-set" :: id :: Nil))) ⇒
           async {
-            storage.create[GSet](id) map { set ⇒
+            future { storage.create[GSet](id) } map { set ⇒
               jsonResponse(s"Successfully created g-set with id = '${set.id}'")
             }
           }
@@ -253,14 +253,14 @@ class CvRDTPlan(storage: ConvergentReplicatedDataTypeDatabase)
         // =================================================================
         case PUT(Path(Seg("2p-set" :: Nil))) ⇒
           async {
-            storage.create[TwoPhaseSet]() map { set ⇒
+            future { storage.create[TwoPhaseSet]() } map { set ⇒
               jsonResponse(s"Successfully created 2p-set with id = '${set.id}'")
             }
           }
 
         case PUT(Path(Seg("2p-set" :: id :: Nil))) ⇒
           async {
-            storage.create[TwoPhaseSet](id) map { set ⇒
+            future { storage.create[TwoPhaseSet](id) } map { set ⇒
               jsonResponse(s"Successfully created 2p-set with id = '${set.id}'")
             }
           }

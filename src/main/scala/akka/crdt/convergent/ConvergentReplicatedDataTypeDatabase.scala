@@ -102,8 +102,32 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
     promise.future
   }
 
-  def create[T <: ConvergentReplicatedDataType: ClassTag](id: String = UUID.randomUUID.toString): Future[T] = {
-    (subscriber ? Subscriber.Create(id, implicitly[ClassTag[T]].runtimeClass)).mapTo[T]
+  def create[T <: ConvergentReplicatedDataType: ClassTag](id: String = UUID.randomUUID.toString): T = {
+    require(!storage.exists(id), s"Can't create new CvRDT with id = $id - already exists")
+    val clazz = implicitly[ClassTag[T]].runtimeClass
+    val crdt =
+      if (classOf[GCounter].isAssignableFrom(clazz)) {
+        val counter = GCounter(id)
+        storage.store(counter)
+        update(counter)
+
+      } else if (classOf[PNCounter].isAssignableFrom(clazz)) {
+        val counter = PNCounter(id)
+        storage.store(counter)
+        update(counter)
+
+      } else if (classOf[GSet].isAssignableFrom(clazz)) {
+        val set = GSet(id)
+        storage.store(set)
+        update(set)
+
+      } else if (classOf[TwoPhaseSet].isAssignableFrom(clazz)) {
+        val set = TwoPhaseSet(id)
+        storage.store(set)
+        update(set)
+
+      } else throw new ClassCastException(s"Could create new CvRDT with id [$id] and type [$clazz]")
+    crdt.asInstanceOf[T]
   }
 
   private def replicate(json: JsValue): Unit = replicator ! Replicator.Replicate(json)
@@ -290,35 +314,6 @@ class Subscriber(database: ConvergentReplicatedDataTypeDatabase) extends Actor w
         }
         storage.store(crdts)
       }
-
-    case Create(id, clazz) ⇒
-      // FIXME this now stores the same CRDT two times in the local storage - once in 'store' and once in 'replicate'
-
-      require(!storage.exists(id), s"Can't create new CvRDT with id = $id - already exists")
-      val crdt =
-        if (classOf[GCounter].isAssignableFrom(clazz)) {
-          val counter = GCounter(id)
-          storage.store(counter)
-          replicate(counter)
-
-        } else if (classOf[PNCounter].isAssignableFrom(clazz)) {
-          val counter = PNCounter(id)
-          storage.store(counter)
-          replicate(counter)
-
-        } else if (classOf[GSet].isAssignableFrom(clazz)) {
-          val set = GSet(id)
-          storage.store(set)
-          replicate(set)
-
-        } else if (classOf[TwoPhaseSet].isAssignableFrom(clazz)) {
-          val set = TwoPhaseSet(id)
-          storage.store(set)
-          replicate(set)
-
-        } else throw new ClassCastException(s"Could create new CvRDT with id [$id] and type [$clazz]")
-
-      sender ! crdt
 
     case FindById(id, clazz) ⇒
       val crdt =

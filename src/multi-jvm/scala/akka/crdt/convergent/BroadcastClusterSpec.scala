@@ -75,7 +75,7 @@ class BroadcastClusterSpec extends MultiNodeSpec(BroadcastClusterSpecConfig) wit
 
       // create in the storage and have it updated automatically
       runOn(node2) {
-        val gcounter = Await.result(storage.create[GCounter]("viktor"), duration)
+        val gcounter = storage.create[GCounter]("viktor")
       }
       enterBarrier("stored g-counter on node2")
 

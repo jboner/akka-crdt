@@ -61,7 +61,7 @@ class GSetClusterSpec extends MultiNodeSpec(GSetClusterSpecConfig) with STMultiN
 
       // create CRDT on node1
       runOn(node1) {
-        Await.result(storage.create[GSet]("users"), duration).value.size must be(0)
+        storage.create[GSet]("users").size must be(0)
       }
       enterBarrier("stored g-set on node1")
 
