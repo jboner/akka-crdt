@@ -68,23 +68,61 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
   } else None
 
   def update(counter: GCounter): GCounter = {
+    log.debug("Updating CvRDT [{}]", counter)
     replicate(toJson(counter))
     counter
   }
 
   def update(counter: PNCounter): PNCounter = {
+    log.debug("Updating CvRDT [{}]", counter)
     replicate(toJson(counter))
     counter
   }
 
   def update(set: GSet): GSet = {
+    log.debug("Updating CvRDT [{}]", set)
     replicate(toJson(set))
     set
   }
 
   def update(set: TwoPhaseSet): TwoPhaseSet = {
+    log.debug("Updating CvRDT [{}]", set)
     replicate(toJson(set))
     set
+  }
+
+  def findById[T <: ConvergentReplicatedDataType: ClassTag](id: String = UUID.randomUUID.toString): Future[T] = {
+    val promise = Promise[T]()
+    (subscriber ? Subscriber.FindById(id, implicitly[ClassTag[T]].runtimeClass)).mapTo[Try[T]] foreach { promise complete _ }
+    promise.future
+  }
+
+  def create[T <: ConvergentReplicatedDataType: ClassTag](id: String = UUID.randomUUID.toString): T = {
+    val clazz = implicitly[ClassTag[T]].runtimeClass
+    log.debug("Creating new CvRDT with id [{}] and type [{}]", id, clazz)
+    val crdt =
+      if (classOf[GCounter].isAssignableFrom(clazz)) update(GCounter(id))
+      else if (classOf[PNCounter].isAssignableFrom(clazz)) update(PNCounter(id))
+      else if (classOf[GSet].isAssignableFrom(clazz)) update(GSet(id))
+      else if (classOf[TwoPhaseSet].isAssignableFrom(clazz)) update(TwoPhaseSet(id))
+      else throw new ClassCastException(s"Could not create new CvRDT of type [$clazz]")
+    crdt.asInstanceOf[T]
+  }
+
+  def findOrCreate[T <: ConvergentReplicatedDataType: ClassTag](id: String = UUID.randomUUID.toString): Future[T] = {
+    val clazz = implicitly[ClassTag[T]].runtimeClass
+    log.debug("Creating new CvRDT with id [{}] and type [{}]", id, clazz)
+    findById[T](id) recoverWith {
+      case _ ⇒ Future {
+        {
+          if (classOf[GCounter].isAssignableFrom(clazz)) update(GCounter(id))
+          else if (classOf[PNCounter].isAssignableFrom(clazz)) update(PNCounter(id))
+          else if (classOf[GSet].isAssignableFrom(clazz)) update(GSet(id))
+          else if (classOf[TwoPhaseSet].isAssignableFrom(clazz)) update(TwoPhaseSet(id))
+          else throw new ClassCastException(s"Could not create new CvRDT of type [$clazz]")
+        }.asInstanceOf[T]
+      }
+    }
   }
 
   def shutdown(): Unit = {
@@ -96,99 +134,35 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
     log.info("ConvergentReplicatedDataTypeDatabase shut down successfully")
   }
 
-  def findById[T <: ConvergentReplicatedDataType: ClassTag](id: String = UUID.randomUUID.toString): Future[T] = {
-    val promise = Promise[T]()
-    (subscriber ? Subscriber.FindById(id, implicitly[ClassTag[T]].runtimeClass)).mapTo[Try[T]] foreach { promise complete _ }
-    promise.future
-  }
-
-  def create[T <: ConvergentReplicatedDataType: ClassTag](id: String = UUID.randomUUID.toString): T = {
-    require(!storage.exists(id), s"Can't create new CvRDT with id = $id - already exists")
-    val clazz = implicitly[ClassTag[T]].runtimeClass
-    val crdt =
-      if (classOf[GCounter].isAssignableFrom(clazz)) {
-        val counter = GCounter(id)
-        storage.store(counter)
-        update(counter)
-
-      } else if (classOf[PNCounter].isAssignableFrom(clazz)) {
-        val counter = PNCounter(id)
-        storage.store(counter)
-        update(counter)
-
-      } else if (classOf[GSet].isAssignableFrom(clazz)) {
-        val set = GSet(id)
-        storage.store(set)
-        update(set)
-
-      } else if (classOf[TwoPhaseSet].isAssignableFrom(clazz)) {
-        val set = TwoPhaseSet(id)
-        storage.store(set)
-        update(set)
-
-      } else throw new ClassCastException(s"Could create new CvRDT with id [$id] and type [$clazz]")
-    crdt.asInstanceOf[T]
-  }
-
   private def replicate(json: JsValue): Unit = replicator ! Replicator.Replicate(json)
 }
 
 object Replicator {
   // FIXME Create Protobuf messages for the Replicate and Ack case classes
   case class Replicate(json: JsValue)
-  case class Ack(address: Address)
-
-  case class MembersChange(addresses: immutable.Set[Address])
-  case class VerifyAckFor(address: Address, changeSet: Subscriber.ChangeSet)
-  case object ResendChangeSets
+  case class Ack(replica: Address)
 }
 
 /**
- * Replicating CRDT changes to all member nodes.
+ * Replicating CvRDT changes to all member nodes.
  * Keeps retrying until an ACK is received or the node is leaving the cluster.
  * Uses a configurable batching window.
  */
-class Replicator(settings: ConvergentReplicatedDataTypeSettings) extends Actor with ActorLogging { replicator ⇒
+class Replicator(settings: ConvergentReplicatedDataTypeSettings)
+  extends Actor with ActorLogging { replicator ⇒
   import Replicator._
+  import Resubmittor._
   import Subscriber._
-  import context.dispatcher
   import settings._
 
-  var addresses: immutable.Set[Address] = immutable.Set.empty[Address] + Cluster(context.system).selfAddress
+  val selfAddress = Cluster(context.system).selfAddress
+  var replicas: immutable.Set[Address] = immutable.Set.empty[Address] + selfAddress
+
   // FIXME: Do not send a Seq with JSON strings across the wire - but plain JSON
   var batch: immutable.Seq[String] = _
   var batchingWindow: Deadline = _
-  val subscriberPath = "/user/crdt:subscriber"
 
-  val resender = context.system.actorOf(Props(new Actor with ActorLogging {
-    var addresses: immutable.Set[Address] = replicator.addresses
-    var changeSets = immutable.Map.empty[Address, ChangeSet]
-
-    val resendingInterval: FiniteDuration = 2 seconds // FIXME configurable
-
-    def receive = {
-      case MembersChange(newAddresses) ⇒
-        addresses = newAddresses
-        log.debug("Member set have changed - new set {}", addresses.mkString(", "))
-
-      case VerifyAckFor(address, changeSet) ⇒
-        changeSets += (address -> changeSet)
-
-      case Ack(address) ⇒
-        changeSets -= address
-
-      case ResendChangeSets ⇒
-        changeSets foreach {
-          case (address, changeSet) ⇒
-            log.debug("Resending change set to {}", address)
-            context.actorSelection(address + subscriberPath) ! changeSet
-        }
-    }
-
-    override def preStart(): Unit = {
-      context.system.scheduler.schedule(resendingInterval, resendingInterval, self, ResendChangeSets)
-    }
-  }), name = "resender")
+  val resubmittor = context.system.actorOf(Props(classOf[Resubmittor], settings), name = "resubmittor")
 
   override def preStart(): Unit = {
     log.info("Starting CvRDT replicator")
@@ -204,13 +178,11 @@ class Replicator(settings: ConvergentReplicatedDataTypeSettings) extends Actor w
 
   def replicateBatch(): Unit = {
     if (!batch.isEmpty) { // only send a non-empty batch
-      log.debug("Replicating batch {}", batch.mkString(", "))
-
-      // FIXME Create is just a subset of Update - so should not be treated special with direct write to subscriber or (now with explicit connections) should both Create and Update perform direct write before replication?
       val changeSet = ChangeSet(batch)
-      addresses foreach { address ⇒
-        resender ! VerifyAckFor(address, changeSet)
-        context.actorSelection(address + subscriberPath) tell (changeSet, resender)
+      replicas foreach { replica ⇒
+        log.debug("Replicating updated CvRDT batch [{}] to [{}]", batch.mkString(", "), replica)
+        resubmittor ! VerifyAckFor(replica, changeSet)
+        context.actorSelection(replica + subscriberPath) tell (changeSet, resubmittor)
       }
     }
     newBatchingWindow()
@@ -219,47 +191,88 @@ class Replicator(settings: ConvergentReplicatedDataTypeSettings) extends Actor w
   def receive = {
     case Replicate(json) ⇒
       val jsonString = stringify(json)
-      log.debug("Adding JSON to batch {}", jsonString)
-      batch = batch :+ jsonString // add to batch
+      log.debug("Adding updated CvRDT to batch [{}]", jsonString)
+      batch = jsonString +: batch // append to batch
       if (batchingWindow.isOverdue) replicateBatch() // if batching window is closed - ship batch and reset window
 
     case ReceiveTimeout ⇒
       replicateBatch() // if no messages within batching window - ship batch and reset window
 
     case state: CurrentClusterState ⇒
-      addresses = addresses ++ state.members.map(_.address)
-      resender ! MembersChange(addresses)
+      replicas = (replicas ++ state.members.map(_.address))
+      resubmittor ! ReplicaSetChange(replicas)
 
     case MemberUp(member) ⇒
-      addresses = addresses + member.address
-      resender ! MembersChange(addresses)
+      replicas = (replicas + member.address)
+      resubmittor ! ReplicaSetChange(replicas)
 
     case MemberRemoved(member, _) ⇒
-      addresses = addresses - member.address
-      resender ! MembersChange(addresses)
+      replicas = (replicas - member.address)
+      resubmittor ! ReplicaSetChange(replicas)
 
-    case _: ClusterDomainEvent ⇒
-    // ignore
+    case _: ClusterDomainEvent ⇒ // ignore
+  }
+}
 
-    case unknown ⇒
-      log.error("Received unknown message: {}", unknown)
+object Resubmittor {
+  case class ReplicaSetChange(replicas: immutable.Set[Address])
+  case class VerifyAckFor(replica: Address, changeSet: Subscriber.ChangeSet)
+  case object ResubmitChangeSets
+}
+
+class Resubmittor(settings: ConvergentReplicatedDataTypeSettings) extends Actor with ActorLogging {
+  import Subscriber._
+  import Replicator._
+  import Resubmittor._
+  import settings._
+  import context.dispatcher
+
+  var replicas: immutable.Set[Address] = immutable.Set.empty[Address]
+  var changeSets = immutable.Map.empty[Address, ChangeSet]
+
+  def receive = {
+    case ReplicaSetChange(newReplicaSet) ⇒
+      val removedReplicas = replicas diff newReplicaSet
+      removedReplicas foreach { changeSets -= _ }
+      replicas = newReplicaSet
+      log.debug("Replica set have changed - new set [{}]", replicas.mkString(", "))
+
+    case VerifyAckFor(replica, changeSet) ⇒
+      changeSets += (replica -> changeSet)
+
+    case Ack(replica) ⇒
+      log.debug("Received ACK from replica [{}]", replica)
+      changeSets -= replica
+
+    case ResubmitChangeSets ⇒
+      changeSets foreach {
+        case (replica, changeSet) ⇒
+          log.debug("Resubmitting change set to replica [{}]", replica)
+          context.actorSelection(replica + subscriberPath) ! changeSet
+      }
+  }
+
+  override def preStart(): Unit = {
+    context.system.scheduler.schedule(
+      ChangeSetResubmissionInterval, ChangeSetResubmissionInterval, self, ResubmitChangeSets)
   }
 }
 
 object Subscriber {
+  val subscriberPath = "/user/crdt:subscriber"
+
   // FIXME Create Protobuf messages for these case classes
-  case class Create(id: String, clazz: Class[_])
   case class FindById(id: String, clazz: Class[_])
   case class ChangeSet(batch: immutable.Seq[_])
 }
 
 /**
- * Subscribing on CRDT changes broadcasted by the Publisher.
+ * Subscribing on CvRDT changes broadcasted by the Publisher.
  */
 class Subscriber(database: ConvergentReplicatedDataTypeDatabase) extends Actor with ActorLogging {
   import Subscriber._
   import Replicator._
-  import database.{ update ⇒ replicate, storage }
+  import database.storage
 
   val selfAddress = Cluster(context.system).selfAddress
 
@@ -269,7 +282,7 @@ class Subscriber(database: ConvergentReplicatedDataTypeDatabase) extends Actor w
 
   def receive: Receive = {
     case ChangeSet(batch) ⇒
-      log.debug("Received change set from {}", sender.path.address)
+      log.debug("Received change set from [{}]", sender.path.address)
       sender ! Ack(selfAddress)
 
       var crdts = immutable.Seq.empty[ConvergentReplicatedDataType]
@@ -308,14 +321,14 @@ class Subscriber(database: ConvergentReplicatedDataTypeDatabase) extends Actor w
                 context.system.eventStream.publish(newSet)
                 log.debug("Updated 2p-set [{}]", newSet)
 
-              case _ ⇒ log.error("Received JSON is not a CvRDT: {}", jsonString)
+              case _ ⇒ log.error("Received JSON is not a CvRDT [{}]", jsonString)
             }
-          case _ ⇒ throw new IllegalStateException("Received batch of non-String change sets: should not happen")
         }
-        storage.store(crdts)
+        database.storage.store(crdts)
       }
 
     case FindById(id, clazz) ⇒
+      log.debug("Find CvRDT of type with id [{}] and type [{}]", id, clazz)
       val crdt =
         if (classOf[GCounter].isAssignableFrom(clazz)) storage.findById[GCounter](id)
         else if (classOf[PNCounter].isAssignableFrom(clazz)) storage.findById[PNCounter](id)
@@ -324,6 +337,6 @@ class Subscriber(database: ConvergentReplicatedDataTypeDatabase) extends Actor w
         else throw new ClassCastException(s"Could create new CvRDT with id [$id] and type [$clazz]")
       sender ! crdt
 
-    case unknown ⇒ throw new IllegalStateException(s"Received unknown message: $unknown")
+    case unknown ⇒ throw new IllegalStateException(s"Received unknown message [$unknown]")
   }
 }

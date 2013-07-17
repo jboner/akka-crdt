@@ -27,7 +27,10 @@ case class GSet(
 
   def view: View = GSetView(id, value)
 
-  def store(implicit system: ActorSystem): Unit = ConvergentReplicatedDataTypeDatabase(system).update(this)
+  def store(implicit system: ActorSystem): this.type = {
+    ConvergentReplicatedDataTypeDatabase(system).update(this)
+    this
+  }
 
   override def toJson: JsValue = GSet.Format.writes(this)
 }

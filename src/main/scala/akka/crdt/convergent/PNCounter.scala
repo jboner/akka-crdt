@@ -47,7 +47,10 @@ case class PNCounter private (
 
   def view: View = PNCounterView(id, value)
 
-  def store(implicit system: ActorSystem): Unit = ConvergentReplicatedDataTypeDatabase(system).update(this)
+  def store(implicit system: ActorSystem): this.type = {
+    ConvergentReplicatedDataTypeDatabase(system).update(this)
+    this
+  }
 
   override def toJson: JsValue = PNCounter.Format.writes(this)
 }

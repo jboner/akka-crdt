@@ -21,7 +21,6 @@ import ConvergentReplicatedDataType._
 case class GCounter(
   id: String = UUID.randomUUID.toString,
   private[crdt] val state: Map[String, Int] = Map.empty[String, Int]) extends Counter {
-  //require(!storage.exists(id), s"Can't create new CvRDT with id = $id - already exists")
 
   override val dataType: String = GCounter.dataType
 
@@ -42,7 +41,10 @@ case class GCounter(
 
   def view: View = GCounterView(id, value)
 
-  def store(implicit system: ActorSystem): Unit = ConvergentReplicatedDataTypeDatabase(system).update(this)
+  def store(implicit system: ActorSystem): this.type = {
+    ConvergentReplicatedDataTypeDatabase(system).update(this)
+    this
+  }
 
   override def toJson: JsValue = GCounter.Format.writes(this)
 }

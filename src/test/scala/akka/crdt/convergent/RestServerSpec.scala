@@ -15,12 +15,11 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 import com.typesafe.config.ConfigFactory
 
-class RestServerSpec extends WordSpec with MustMatchers with BeforeAndAfterAll {
-
-  val system = ActorSystem("RestServerSpec", ConfigFactory.parseString("""
+class RestServerSpec extends TestKit(
+  ActorSystem("RestServerSpec", ConfigFactory.parseString("""
 		akka {
 			actor.provider = akka.cluster.ClusterActorRefProvider
-			loglevel = DEBUG
+			loglevel = INFO
 			loggers = ["akka.testkit.TestEventListener"]
 			remote {
 				enabled-transports = ["akka.remote.netty.tcp"]
@@ -35,12 +34,13 @@ class RestServerSpec extends WordSpec with MustMatchers with BeforeAndAfterAll {
   			hostname = "127.0.0.1"
 			  port     = 9009
 			}
-  		crdt.convergent.leveldb.destroy-on-shutdown  = on 
+  		crdt.convergent.leveldb.destroy-on-shutdown  = on
 		}
-		"""))
+	"""))) with WordSpec with MustMatchers with BeforeAndAfterAll {
 
   val storage = ConvergentReplicatedDataTypeDatabase(system)
-  val timeout = 5 seconds
+  val waitForResponse = 5 seconds
+  val waitForReplication = 10 seconds
 
   override def afterAll() = {
     storage.shutdown()
@@ -58,7 +58,7 @@ class RestServerSpec extends WordSpec with MustMatchers with BeforeAndAfterAll {
     // =================================================================
 
     "serve unfiltered text" in {
-      val result = Await.result(Http(newURL / "ping" OK as.String), timeout).trim()
+      val result = Await.result(Http(newURL / "ping" OK as.String), waitForResponse).trim()
       result must be("pong")
     }
 
@@ -67,24 +67,20 @@ class RestServerSpec extends WordSpec with MustMatchers with BeforeAndAfterAll {
     // =================================================================
 
     "be able to create a new g-counter with a random id" in {
-      val result = Await.result(Http((newURL / "g-counter").PUT), timeout).getResponseBody().trim()
-      result.startsWith("Successfully created g-counter") must be(true)
+      Await.result(Http((newURL / "g-counter").PUT), waitForResponse).getResponseBody().trim().startsWith("Successfully created g-counter") must be(true)
     }
 
     "be able to create a new g-counter with a specific id" in {
-      val result = Await.result(Http((newURL / "g-counter" / "jonas").PUT), timeout).getResponseBody().trim()
-      result must be("Successfully created g-counter with id = 'jonas'")
+      Await.result(Http((newURL / "g-counter" / "jonas").PUT), waitForResponse).getResponseBody().trim() must be("Successfully created g-counter with id = 'jonas'")
     }
 
     "be able to find a new g-counter with a specific id" in {
-      val result = Await.result(Http(newURL / "g-counter" / "jonas"), timeout).getResponseBody().trim()
-      result must be("""{"type":"counter","id":"jonas","value":0}""")
+      awaitCond(Await.result(Http(newURL / "g-counter" / "jonas"), waitForResponse).getResponseBody().trim() == """{"type":"counter","id":"jonas","value":0}""", waitForReplication)
     }
 
     "be able to increment a g-counter" in {
-      val response = Http((newURL / "g-counter" / "jonas").POST <<? Map("node" -> "node1", "delta" -> "1") <:< Map("Content-type" -> "application/text") OK as.String)
-      val result = Await.result(response, timeout).trim()
-      result must be("""{"type":"counter","id":"jonas","value":1}""")
+      Http((newURL / "g-counter" / "jonas").POST <<? Map("node" -> "node1", "delta" -> "1") <:< Map("Content-type" -> "application/text"))
+      awaitCond(Await.result(Http(newURL / "g-counter" / "jonas"), waitForResponse).getResponseBody().trim() == """{"type":"counter","id":"jonas","value":1}""", waitForReplication)
     }
 
     // =================================================================
@@ -92,30 +88,25 @@ class RestServerSpec extends WordSpec with MustMatchers with BeforeAndAfterAll {
     // =================================================================
 
     "be able to create a new pn-counter with a random id" in {
-      val result = Await.result(Http((newURL / "pn-counter").PUT), timeout).getResponseBody().trim()
-      result.startsWith("Successfully created pn-counter") must be(true)
+      Await.result(Http((newURL / "pn-counter").PUT), waitForResponse).getResponseBody().trim().startsWith("Successfully created pn-counter") must be(true)
     }
 
     "be able to create a new pn-counter with a specific id" in {
-      val result = Await.result(Http((newURL / "pn-counter" / "users1").PUT), timeout).getResponseBody().trim()
-      result must be("Successfully created pn-counter with id = 'users1'")
+      Await.result(Http((newURL / "pn-counter" / "users1").PUT), waitForResponse).getResponseBody().trim() must be("Successfully created pn-counter with id = 'users1'")
     }
 
     "be able to find a new pn-counter with a specific id" in {
-      val result = Await.result(Http(newURL / "pn-counter" / "users1"), timeout).getResponseBody().trim()
-      result must be("""{"type":"counter","id":"users1","value":0}""")
+      awaitCond(Await.result(Http(newURL / "pn-counter" / "users1"), waitForResponse).getResponseBody().trim() == """{"type":"counter","id":"users1","value":0}""", waitForReplication)
     }
 
     "be able to increment a pn-counter" in {
-      val response = Http((newURL / "pn-counter" / "users1").POST <<? Map("node" -> "node1", "delta" -> "1") <:< Map("Content-type" -> "application/text") OK as.String)
-      val result = Await.result(response, timeout).trim()
-      result must be("""{"type":"counter","id":"users1","value":1}""")
+      Http((newURL / "pn-counter" / "users1").POST <<? Map("node" -> "node1", "delta" -> "1") <:< Map("Content-type" -> "application/text"))
+      awaitCond(Await.result(Http(newURL / "pn-counter" / "users1"), waitForResponse).getResponseBody().trim() == """{"type":"counter","id":"users1","value":1}""", waitForReplication)
     }
 
     "be able to decrement a pn-counter" in {
-      val response = Http((newURL / "pn-counter" / "users1").POST <<? Map("node" -> "node3", "delta" -> "-1") <:< Map("Content-type" -> "application/text") OK as.String)
-      val result = Await.result(response, timeout).trim()
-      result must be("""{"type":"counter","id":"users1","value":0}""")
+      Http((newURL / "pn-counter" / "users1").POST <<? Map("node" -> "node3", "delta" -> "-1") <:< Map("Content-type" -> "application/text"))
+      awaitCond(Await.result(Http(newURL / "pn-counter" / "users1"), waitForResponse).getResponseBody().trim() == """{"type":"counter","id":"users1","value":0}""", waitForReplication)
     }
 
     // =================================================================
@@ -123,31 +114,24 @@ class RestServerSpec extends WordSpec with MustMatchers with BeforeAndAfterAll {
     // =================================================================
 
     "be able to create a new g-set with a random id" in {
-      val result = Await.result(Http((newURL / "g-set").PUT), timeout).getResponseBody().trim()
-      result.startsWith("Successfully created g-set") must be(true)
+      Await.result(Http((newURL / "g-set").PUT), waitForResponse).getResponseBody().trim().startsWith("Successfully created g-set") must be(true)
     }
 
     "be able to create a new g-set with a specific id" in {
-      val result = Await.result(Http((newURL / "g-set" / "users1").PUT), timeout).getResponseBody().trim()
-      result must be("Successfully created g-set with id = 'users1'")
+      Await.result(Http((newURL / "g-set" / "users1").PUT), waitForResponse).getResponseBody().trim() must be("Successfully created g-set with id = 'users1'")
     }
 
     "be able to find a new g-set with a specific id" in {
-      val result = Await.result(Http(newURL / "g-set" / "users1"), timeout).getResponseBody().trim()
-      result must be("""{"type":"set","id":"users1","value":[]}""")
+      awaitCond(Await.result(Http(newURL / "g-set" / "users1"), waitForResponse).getResponseBody().trim() == """{"type":"set","id":"users1","value":[]}""", waitForReplication)
     }
 
     "be able to add a JSON value to a g-set" in {
-      val userValue = """{"username":"john","password":"coltrane"}"""
-      val response = Http((newURL / "g-set" / "users1" / "add") << userValue <:< Map("Content-type" -> "application/json") OK as.String)
-      val result = Await.result(response, timeout).trim()
-      result must be("""{"type":"set","id":"users1","value":[{"username":"john","password":"coltrane"}]}""")
+      Http((newURL / "g-set" / "users1" / "add") << """{"username":"john","password":"coltrane"}""" <:< Map("Content-type" -> "application/json"))
+      awaitCond(Await.result(Http(newURL / "g-set" / "users1"), waitForResponse).getResponseBody.trim() == """{"type":"set","id":"users1","value":[{"username":"john","password":"coltrane"}]}""", waitForReplication)
     }
 
     "be able to add an invalid JSON value to a g-set" in {
-      val userValue = """{"username":"john","password":"coltrane}"""
-      val response = Http((newURL / "g-set" / "users3" / "add") << userValue <:< Map("Content-type" -> "application/json"))
-      val result = Await.result(response, timeout)
+      val result = Await.result(Http((newURL / "g-set" / "users3" / "add") << """{"username":"john","password":"coltrane}""" <:< Map("Content-type" -> "application/json")), waitForResponse)
       result.getResponseBody() must startWith("org.codehaus.jackson.JsonParseException: Unexpected end-of-input: was expecting closing quote for a string value")
       result.getStatusCode() must be(400)
       result.getStatusText() must be("Bad Request")
@@ -158,38 +142,29 @@ class RestServerSpec extends WordSpec with MustMatchers with BeforeAndAfterAll {
     // =================================================================
 
     "be able to create a new 2p-set with a random id" in {
-      val result = Await.result(Http((newURL / "2p-set").PUT), timeout).getResponseBody().trim()
-      result.startsWith("Successfully created 2p-set") must be(true)
+      Await.result(Http((newURL / "2p-set").PUT), waitForResponse).getResponseBody().trim().startsWith("Successfully created 2p-set") must be(true)
     }
 
     "be able to create a new 2p-set with a specific id" in {
-      val result = Await.result(Http((newURL / "2p-set" / "users1").PUT), timeout).getResponseBody().trim()
-      result must be("Successfully created 2p-set with id = 'users1'")
+      Await.result(Http((newURL / "2p-set" / "users1").PUT), waitForResponse).getResponseBody().trim() must be("Successfully created 2p-set with id = 'users1'")
     }
 
     "be able to find a new 2p-set with a specific id" in {
-      val result = Await.result(Http(newURL / "2p-set" / "users1"), timeout).getResponseBody().trim()
-      result must be("""{"type":"set","id":"users1","value":[]}""")
+      awaitCond(Await.result(Http(newURL / "2p-set" / "users1"), waitForResponse).getResponseBody().trim() == """{"type":"set","id":"users1","value":[]}""", waitForReplication)
     }
 
     "be able to add a JSON value to a 2p-set" in {
-      val userValue = """{"username":"john","password":"coltrane"}"""
-      val response = Http((newURL / "2p-set" / "users1" / "add") << userValue <:< Map("Content-type" -> "application/json") OK as.String)
-      val result = Await.result(response, timeout).trim()
-      result must be("""{"type":"set","id":"users1","value":[{"username":"john","password":"coltrane"}]}""")
+      Http((newURL / "2p-set" / "users1" / "add") << """{"username":"john","password":"coltrane"}""" <:< Map("Content-type" -> "application/json"))
+      awaitCond(Await.result(Http(newURL / "2p-set" / "users1"), waitForResponse).getResponseBody().trim() == """{"type":"set","id":"users1","value":[{"username":"john","password":"coltrane"}]}""", waitForReplication)
     }
 
     "be able to remove a JSON value from a 2p-set" in {
-      val userValue = """{"username":"john","password":"coltrane"}"""
-      val response2 = Http((newURL / "2p-set" / "users1" / "remove") << userValue <:< Map("Content-type" -> "application/json") OK as.String)
-      val result2 = Await.result(response2, timeout).trim()
-      result2 must be("""{"type":"set","id":"users1","value":[]}""")
+      Http((newURL / "2p-set" / "users1" / "remove") << """{"username":"john","password":"coltrane"}""" <:< Map("Content-type" -> "application/json"))
+      awaitCond(Await.result(Http(newURL / "2p-set" / "users1"), waitForResponse).getResponseBody().trim() == """{"type":"set","id":"users1","value":[]}""", waitForReplication)
     }
 
     "be able to add an invalid JSON value to a 2p-set" in {
-      val userValue = """{"username":"john","password":"coltrane}"""
-      val response = Http((newURL / "2p-set" / "users1" / "add") << userValue <:< Map("Content-type" -> "application/json"))
-      val result = Await.result(response, timeout)
+      val result = Await.result(Http((newURL / "2p-set" / "users1" / "add") << """{"username":"john","password":"coltrane}""" <:< Map("Content-type" -> "application/json")), waitForResponse)
       result.getResponseBody() must startWith("org.codehaus.jackson.JsonParseException: Unexpected end-of-input: was expecting closing quote for a string value")
       result.getStatusCode() must be(400)
       result.getStatusText() must be("Bad Request")

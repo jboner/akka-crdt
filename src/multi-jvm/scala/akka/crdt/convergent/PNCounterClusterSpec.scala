@@ -41,6 +41,7 @@ class PNCounterClusterSpec extends MultiNodeSpec(PNCounterClusterSpecConfig) wit
   import PNCounterClusterSpecConfig._
 
   implicit def roleNameToAddress(role: RoleName): Address = testConductor.getAddressFor(role).await
+  implicit val sys: ActorSystem = system
 
   def initialParticipants = roles.size
 
@@ -48,7 +49,7 @@ class PNCounterClusterSpec extends MultiNodeSpec(PNCounterClusterSpecConfig) wit
 
     "Make sure that a PNCounter, used by multiple nodes, eventually converge to a consistent value" in {
       val cluster = Cluster(system)
-      val storage = ConvergentReplicatedDataTypeDatabase(system)
+      val db = ConvergentReplicatedDataTypeDatabase(system)
 
       implicit val ec = system.dispatcher
       val duration = 10 seconds
@@ -61,37 +62,37 @@ class PNCounterClusterSpec extends MultiNodeSpec(PNCounterClusterSpecConfig) wit
       
       // create CRDT on node1
       runOn(node1) {
-        storage.create[PNCounter]("jonas").value must be(0)
+        db.create[PNCounter]("jonas").value must be(0)
       }
       enterBarrier("stored pn-counter on node1")
 
       // find CRDT by id on the other nodes
       runOn(node2, node3) {
-        awaitAssert(Await.result(storage.findById[PNCounter]("jonas"), duration)) // wait until it does not throw exception
+        awaitAssert(Await.result(db.findById[PNCounter]("jonas"), duration)) // wait until it does not throw exception
       }
       enterBarrier("pn-counter exists on all nodes")
 
       // let each node update the counter (incrementing or decrementing)
       runOn(node1) {
-        storage.findById[PNCounter]("jonas") map (_ + (node1.name, 2)) foreach (storage.update(_))
+        db.findById[PNCounter]("jonas") map (_ + (node1.name, 2)) foreach (db.update(_))
       }
       runOn(node2) {
-        storage.findById[PNCounter]("jonas") map (_ - node2.name) foreach (storage.update(_))
+        db.findById[PNCounter]("jonas") map (_ - node2.name) foreach (db.update(_))
       }
       runOn(node3) {
-        storage.findById[PNCounter]("jonas") map (_ + node3.name) foreach (storage.update(_))
-        storage.findById[PNCounter]("jonas") map (_ - node3.name) foreach (storage.update(_))
+        db.findById[PNCounter]("jonas") map (_ + node3.name) foreach (db.update(_))
+        db.findById[PNCounter]("jonas") map (_ - node3.name) foreach (db.update(_))
       }
       enterBarrier("updated-counter-on-all-nodes")
 
       // make sure each node sees the converged counter value of 3
       runOn(node1, node2, node3) {
-        awaitCond(Await.result(storage.findById[PNCounter]("jonas"), 100 millis).value == 1, 10 seconds)
+        awaitCond(Await.result(db.findById[PNCounter]("jonas"), 100 millis).value == 1, 10 seconds)
       }
 
       enterBarrier("verified-counter-on-all-nodes")
       
-      storage.shutdown()
+      db.shutdown()
       enterBarrier("after-shutdown")
     }
   }

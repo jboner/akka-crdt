@@ -20,6 +20,7 @@ class ConvergentReplicatedDataTypeSettings(val config: Config, val name: String)
   val RestServerPort: Int = getInt("rest-server.port")
 
   val BatchingWindow: FiniteDuration = Duration(getMilliseconds("convergent.batching-window"), TimeUnit.MILLISECONDS)
+  val ChangeSetResubmissionInterval: FiniteDuration = Duration(getMilliseconds("convergent.change-set-resubmission-interval"), TimeUnit.MILLISECONDS)
 
   val StorageClass = {
     val classname = getString("convergent.storage-class").trim()

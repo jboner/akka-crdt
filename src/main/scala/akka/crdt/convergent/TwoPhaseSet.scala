@@ -42,7 +42,10 @@ case class TwoPhaseSet(
 
   def view: View = TwoPhaseSetView(id, value)
 
-  def store(implicit system: ActorSystem): Unit = ConvergentReplicatedDataTypeDatabase(system).update(this)
+  def store(implicit system: ActorSystem): this.type = {
+    ConvergentReplicatedDataTypeDatabase(system).update(this)
+    this
+  }
 
   override def toJson: JsValue = TwoPhaseSet.Format.writes(this)
 }

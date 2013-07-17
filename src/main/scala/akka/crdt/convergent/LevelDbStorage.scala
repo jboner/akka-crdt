@@ -48,15 +48,15 @@ class LevelDbStorage(
   def findById[T <: ConvergentReplicatedDataType: ClassTag](id: String): Try[T] = Try {
     val clazz = implicitly[ClassTag[T]].runtimeClass
     val crdt =
-      if (classOf[GCounter].isAssignableFrom(clazz)) {
+      if (classOf[GCounter].isAssignableFrom(clazz))
         toJson(getElementInDb(GCounter.dataType, id)).as[GCounter]
-      } else if (classOf[PNCounter].isAssignableFrom(clazz)) {
+      else if (classOf[PNCounter].isAssignableFrom(clazz))
         toJson(getElementInDb(PNCounter.dataType, id)).as[PNCounter]
-      } else if (classOf[GSet].isAssignableFrom(clazz)) {
+      else if (classOf[GSet].isAssignableFrom(clazz))
         toJson(getElementInDb(GSet.dataType, id)).as[GSet]
-      } else if (classOf[TwoPhaseSet].isAssignableFrom(clazz)) {
+      else if (classOf[TwoPhaseSet].isAssignableFrom(clazz))
         toJson(getElementInDb(TwoPhaseSet.dataType, id)).as[TwoPhaseSet]
-      } else throw new ClassCastException(s"Could create new CvRDT with id [$id] and type [$clazz]")
+      else throw new ClassCastException(s"Could create new CvRDT with id [$id] and type [$clazz]")
     log.debug("Finding CvRDT in LevelDB: {}", crdt)
     crdt.asInstanceOf[T]
   }
@@ -75,7 +75,7 @@ class LevelDbStorage(
       log.debug("Storing batch in LevelDB: {}", crdts.mkString(", "))
       val batch = db.createWriteBatch()
       try {
-        crdts foreach { crdt ⇒ batch put (bytes(crdt.dataType + "/" + crdt.id), bytes(crdt.toString)) }
+        crdts foreach { crdt ⇒ batch put (bytes(createKey(crdt.dataType, crdt.id)), bytes(crdt.toString)) }
         db.write(batch, levelDbWriteOptions)
       } finally batch.close()
     }
@@ -92,7 +92,7 @@ class LevelDbStorage(
     factory.destroy(new File(filename), new Options)
   }
 
-  def exists(id: String): Boolean = db.get(bytes(id)) ne null
+  def exists(dataType: String, id: String): Boolean = db.get(bytes(createKey(dataType, id))) ne null
 
   private def getElementInDb(dataType: String, id: String): Array[Byte] = {
     val result = db.get(bytes(createKey(dataType, id)))

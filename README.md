@@ -45,7 +45,7 @@ You can run the REST server in two different ways.
 
 1. Run it in stand-alone mode from the command line. Here you run it by invoking ``sbt run`` in the project root directory. You configure it through JVM options, which will override the default configuration values. Example: ``sbt run -Dakka.crdt.rest-server.port=9999``. You shut down the server by invoking ``Control-C`` which cleans up all resources and by default this destroys the LevelDB database (deletes the files), if you don't want this behaviour then start it up with ``-Dakka.crdt.convergent.leveldb.destroy-on-shutdown=off``.
 
-2. Embedded in an Akka application (see the 'Embedded Server' section below for details). To do this just create the extension using ``val storage = ConvergentReplicatedDataTypeDatabase(system)`` and off you go. The REST server will be started automatically if the ``akka.crdt.rest-server.run`` is set to ``on``. 
+2. Embedded in an Akka application (see the 'Embedded Server' section below for details). To do this just create the extension using ``val db = ConvergentReplicatedDataTypeDatabase(system)`` and off you go. The REST server will be started automatically if the ``akka.crdt.rest-server.run`` is set to ``on``. 
 
 Each CRDT has a read-only JSON view representation which is used in the REST API for querying data. For details on the REST API and the different JSON views see the section with the different CRDT descriptions below. 
 
@@ -56,31 +56,19 @@ The REST client can contact any of the nodes in the cluster to read or write any
 You can create the ``ConvergentReplicatedDataTypeDatabase`` Extension like this (from within an actor): 
 
 ```scala
-val storage = ConvergentReplicatedDataTypeDatabase(context.system)
+val db = ConvergentReplicatedDataTypeDatabase(context.system)
 ```
 
-Create a new CRDT by id:
+Find a new CRDT by id:
 
 ```scala
-val nrOfUsers: Future[GCounter] = storage.create[GCounter]("users")
-```
-
-Create a new CRDT with a random id:
-
-```scala
-val nrOfUsers: Future[GCounter] = storage.create[GCounter]
-```
-
-Store the updated CRDT:
-
-```scala
-storage update updatedNrOfUsers
+val nrOfUsers: Future[GCounter] = db.findById[GCounter]("users")
 ```
 
 Shut down the database:
 
 ```scala
-storage.shutdown()
+db.shutdown()
 ```
     
 ## LevelDB
@@ -115,19 +103,25 @@ counts.
 Create a ``g-counter`` in Scala: 
 
 ```scala
-val nrOfUsers: Future[GCounter] = storage.create[GCounter]("users")
+val nrOfUsers: GCounter = db.create[GCounter]("users")
 ```
 
 Find a ``g-counter`` by id in Scala: 
 
 ```scala
-val nrOfUsers: Future[GCounter] = storage.findById[GCounter]("users")
+val nrOfUsers: Future[GCounter] = db.findById[GCounter]("users")
+```
+
+Find or Create a ``g-counter`` in Scala: 
+
+```scala
+val nrOfUsers: Future[GCounter] = db.findOrCreate[GCounter]("users")
 ```
 
 Store updates to a ``g-counter`` in Scala: 
 
 ```scala
-storage.update(counter)
+db.update(counter)
 ```
 
 Increment the counter by 1: 
@@ -249,19 +243,19 @@ the value of the N counter.
 Create a ``pn-counter`` in Scala: 
 
 ```scala
-val nrOfUsers: Future[PNCounter] = storage.create[PNCounter]("users")
+val nrOfUsers: Future[PNCounter] = db.create[PNCounter]("users")
 ```
 
 Find a ``pn-counter`` by id in Scala: 
 
 ```scala
-val nrOfUsers: Future[PNCounter] = storage.findById[PNCounter]("users")
+val nrOfUsers: Future[PNCounter] = db.findById[PNCounter]("users")
 ```
 
 Store updates to a ``pn-counter`` in Scala: 
 
 ```scala
-storage.update(counter)
+db.update(counter)
 ```
 
 Increment the counter by 1: 
@@ -415,19 +409,19 @@ of type ``JsValue`` (play-json).
 Create a ``g-set`` in Scala: 
 
 ```scala
-val users: Future[GSet] = storage.create[GSet]("users")
+val users: Future[GSet] = db.create[GSet]("users")
 ```
 
 Find a ``g-set`` by id in Scala: 
 
 ```scala
-val users: Future[GSet] = storage.findById[GSet]("users")
+val users: Future[GSet] = db.findById[GSet]("users")
 ```
 
 Store updates to a ``g-set`` in Scala: 
 
 ```scala
-storage.update(set)
+db.update(set)
 ```
 
 Add JSON element to the set: 
@@ -562,19 +556,19 @@ A ``TwoPhaseSet`` can only contain JSON values of type ``JsValue`` (play-json).
 Create a ``2p-set`` in Scala: 
 
 ```scala
-val users: Future[TwoPhaseSet] = storage.create[TwoPhaseSet]("users")
+val users: Future[TwoPhaseSet] = db.create[TwoPhaseSet]("users")
 ```
 
 Find a ``2p-set`` by id in Scala: 
 
 ```scala
-val users: Future[TwoPhaseSet] = storage.findById[TwoPhaseSet]("users")
+val users: Future[TwoPhaseSet] = db.findById[TwoPhaseSet]("users")
 ```
 
 Store updates to a ``2p-set`` in Scala: 
 
 ```scala
-storage.update(set)
+db.update(set)
 ```
 
 Add JSON element to the set: 

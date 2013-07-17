@@ -41,13 +41,15 @@ class BroadcastClusterSpec extends MultiNodeSpec(BroadcastClusterSpecConfig) wit
 
   def initialParticipants = roles.size
 
+   implicit val sys: ActorSystem = system
   "A ConvergentReplicatedDataTypeDatabase" must {
 
     "broadcast all CvRDT changes to all cluster nodes" in {
       val cluster = Cluster(system)
-      val storage = ConvergentReplicatedDataTypeDatabase(system)
-
+      val db = ConvergentReplicatedDataTypeDatabase(system)
+      
       implicit val ec = system.dispatcher
+      
       val duration = 10 seconds
 
       runOn(node1) { cluster join node1 }
@@ -58,15 +60,14 @@ class BroadcastClusterSpec extends MultiNodeSpec(BroadcastClusterSpecConfig) wit
 
       // create directly and then store using 'update'
       runOn(node1) {
-        val gcounter = GCounter("jonas")
-        storage.update(gcounter)
+        val gcounter = GCounter("jonas").store
       }
       enterBarrier("stored g-counter on node1")
 
       // find by id on the other nodes
       runOn(node2, node3) {
-				awaitAssert(Await.result(storage.findById[GCounter]("jonas"), duration))
-        storage.findById[GCounter]("jonas") foreach { counter =>
+				awaitAssert(Await.result(db.findById[GCounter]("jonas"), duration))
+        db.findById[GCounter]("jonas") foreach { counter =>
           counter.id must be("jonas")
           counter.dataType must be("g-counter")
         }
@@ -75,21 +76,21 @@ class BroadcastClusterSpec extends MultiNodeSpec(BroadcastClusterSpecConfig) wit
 
       // create in the storage and have it updated automatically
       runOn(node2) {
-        val gcounter = storage.create[GCounter]("viktor")
+        val gcounter = GCounter("viktor").store
       }
       enterBarrier("stored g-counter on node2")
 
       // find by id on the other nodes
       runOn(node1, node3) {
-        awaitAssert(Await.result(storage.findById[GCounter]("viktor"), duration))
-        storage.findById[GCounter]("viktor") foreach { counter =>
+        awaitAssert(Await.result(db.findById[GCounter]("viktor"), duration))
+        db.findById[GCounter]("viktor") foreach { counter =>
           counter.id must be("viktor")
           counter.dataType must be("g-counter")
         }
       }
       enterBarrier("replicated g-counter from node2")
 
-      storage.shutdown()
+      db.shutdown()
       enterBarrier("after-shutdown")
     }
   }

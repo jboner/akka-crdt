@@ -33,6 +33,6 @@ trait ConvergentReplicatedDataType {
   def id: String
   def toJson: JsValue
   def view: ConvergentReplicatedDataType.View
-  def store(implicit system: ActorSystem): Unit
+  def store(implicit system: ActorSystem): this.type
   override def toString: String = Json.stringify(toJson)
 }

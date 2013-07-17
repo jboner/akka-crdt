@@ -18,8 +18,6 @@ class StorageException(message: String) extends AkkaException(message)
  */
 trait Storage {
 
-  //  FIXME: Implement these in Storage: 'def keys(): Set[Array[Byte]]' and 'def values(): Iterator[Array[Byte]]'
-
   def findById[T <: ConvergentReplicatedDataType: ClassTag](id: String): Try[T]
 
   /**
@@ -45,5 +43,5 @@ trait Storage {
   /**
    * Returns true if an element with the specified id exists in the storage.
    */
-  def exists(id: String): Boolean
+  def exists(dataType: String, id: String): Boolean
 }
