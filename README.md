@@ -44,7 +44,9 @@ There are two different implementations:
 
 ### CvRDTs
 
-CvRDTs (Convergent Replicated Data Types) are _state-based_ and do not require a fully reliable broadcast since every instance keeps the full history and is therefore self-contained and fault-tolerant by design. The implementation is based on Akka Cluster's Publish Subscribe, which is very efficient, have high-throughput and low latency, but is not reliable. In the CvRDT implementation the change sets are batched up (using a configurable batching window - default is 10 ms) and replicated out to the rest of the cluster nodes in an eventually consistent fashion. The eventual consistent nature of the system means that there will be a slight delay in the consistency between the nodes, however, the system guarantees that you read your writes if you talk to a single cluster node. 
+CvRDTs (Convergent Replicated Data Types) are _state-based_ and do not require a fully reliable broadcast since every instance keeps the full history and is therefore self-contained and fault-tolerant by design. The implementation is based on Akka Cluster's Publish Subscribe, which is very efficient, have high-throughput and low latency, but is not reliable. 
+
+In the CvRDT implementation the change sets are batched up (using a configurable batching window - default is 10 ms) and replicated out to the rest of the cluster nodes in an eventually consistent fashion. The eventual consistent nature of the system means that there will be a slight delay in the consistency between the nodes. Each batch is sent to all the nodes in the cluster and is then awaiting an ACK from each node. If no ACK is received then it will retry every T millis (configurable) indefinitely until either an ACK is received or the node is [removed from the cluster](http://doc.akka.io/docs/akka/snapshot/scala/cluster-usage.html#Leaving). 
 
 ### CmRDTs
 
@@ -229,7 +231,8 @@ curl -i -H "Accept: application/json" \
     http://127.0.0.1:9009/g-counter/users
 ```
 
-##### JSON View
+##### JSON View 
+The JSON returned from the REST calls.
 
 ```json
 {
@@ -240,7 +243,6 @@ curl -i -H "Accept: application/json" \
 ```
 
 #### Serialization Format
-
 This is the internal representation of a ``g-counter``:
 
 ```json
@@ -399,6 +401,7 @@ curl -i -H "Accept: application/json" \
 ```
 
 ##### JSON View
+The JSON returned from the REST calls.
 
 ```json
 {
@@ -559,6 +562,7 @@ curl -i -H "Accept: application/json" \
 ```
 
 ##### JSON View
+The JSON returned from the REST calls.
 
 ```json
 {
@@ -739,6 +743,7 @@ curl -i -H "Accept: application/json" \
 ```
         
 ##### JSON View
+The JSON returned from the REST calls.
 
 ```json
 {
