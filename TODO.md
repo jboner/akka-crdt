@@ -21,19 +21,13 @@ Write docs for:
 * <del>Explain difference between CvRDT and CmRDT</del>
 * More background and concepts around CRDT, CAP and CALM
 
-## Query API
-
-Support in both Scala and REST API:
-
-* def keys(): Set[String]
-* def values(): Iterator[CRDT]
-
 ## CvRDTs (state-based)
 
 ### Counters
 
 * <del>Specification 6  State-based increment-only counter</del>
 * <del>Specification 7  State-based PN-Counter</del>
+* Implement Handoff Counter as described in [this paper](http://arxiv.org/abs/1307.3207) and this [code](https://github.com/pssalmeida/clj-crdt/blob/master/src/crdt/handoff_counter.clj)
 
 ### Sets
 
@@ -75,10 +69,6 @@ Support in both Scala and REST API:
 
 ## Misc Stuff
 
-### Garbage Collection for CvRDTs
-
-* TODO
-
 ### Reliable Broadcast for CmRDTs
 
 * Using eventsourced - [Use the Akka 2.2 branch](https://github.com/eligosource/eventsourced/tree/wip-akka-2.2).
@@ -86,3 +76,8 @@ Support in both Scala and REST API:
 ### Client API 
 * Write a JavaScript CRDT library. So a client can grab the real JSON representation, modify it, do the merges as needed and then push the result back to the server.
 * Java API for CRDT classes/ClusterClient
+
+### Replication
+
+* If a new node joins the cluster then the current state for all CvRDTs is not immediately replicated. It will be eventually - for all the CvRDTs that are updated again. This is not good. How can we solve this? 
+

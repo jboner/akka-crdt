@@ -4,12 +4,27 @@
 
 ## Introduction
 
-The goal of this project is to provide a server-managed CRDT database build on top of Akka Cluster. We plan to implement most of the known CRDTs, both CvRDTs and CmRDTs (see below for the difference). It is meant to be used both from within an Akka application and as a stand-alone REST service speaking JSON.
-
+The goal of this project is to provide a server-managed CRDT database build on top of Akka Cluster. We plan to implement most of the known CRDTs (Conflict-free Replicated Data Types), both CvRDTs and CmRDTs (see below for the difference). It is meant to be used both from within an Akka application and as a stand-alone REST service speaking JSON.
 
 In short; a CRDT is a data type in which operations always commute and/or state changes always converge. CRDTs gives you very scalable eventual consistency "for free". Most CRDTs are a very limited data structures that does not fit all problems, but when they do, they really excel. There are multiple different CRDTs discovered: counters, sets, graphs etc. A data structure that is made up of CRDTs is also a CRDT, which makes it possible to create rich and advanced data structures that have the same nice properties. 
 
 A full outline of what CRDTs are all about is out of scope for this documentation. For good introduction to the subject read the excellent paper [A comprehensive study of Convergent and Commutative Replicated Data Types](http://hal.upmc.fr/docs/00/55/55/88/PDF/techreport.pdf) by Mark Shapiro et. al. 
+
+## Simple Example
+
+```scala
+// from within an Akka actor
+import context._
+
+// get the database extension
+val db = ConvergentReplicatedDataTypeDatabase(system)
+
+// find the 'users' GCounter 
+val nrOfUsers: Future[GCounter] = db.findById[GCounter]("users") 
+
+// increment the counter by 1 for this actor and then store it
+nrOfUsers map { _ + self.path } foreach { _.store(system) }
+```
 
 ----
 **NOTE**: This is __work in progress__ and is currently to be treated as a Proof of Concept. Apart from hardening and bug fixing etc. you can find some of the outstanding issues in the [TODO](https://github.com/jboner/akka-crdt/blob/master/TODO.md) list. If you find this project interesting please join us and help out. 
@@ -20,9 +35,7 @@ A full outline of what CRDTs are all about is out of scope for this documentatio
 
 The implementation is provided as an [Akka Extension](http://doc.akka.io/docs/akka/snapshot/scala/extending-akka.html) and build on top of [Akka Cluster](http://doc.akka.io/docs/akka/snapshot/common/cluster.html#cluster), which means that the cluster is fully elastic - allowing you to add and remove nodes on the fly as-needed. The storage system is pluggable with a default implementation of [LevelDB](http://code.google.com/p/leveldb/) (both native and Java port). 
 
-The CRDTs are immutable and can be queried, updated and managed either directly using the Akka Extension from within actors running on each node or from the "outside" through a REST API serving JSON over HTTP (see below for details). The serialisation protocol/format is pure JSON to make it possible to integrate with other CRDT client libraries. The JSON library used is [play-json](http://www.playframework.com/documentation/2.1.1/ScalaJson).
-
-//PN: I'm not convinced that exposing JSON library impl in api is a good idea
+The CRDTs are immutable and can be queried, updated and managed either directly using the Akka Extension from within actors running on each node or from the "outside" through a REST API serving JSON over HTTP (see below for details). The serialisation protocol/format is pure JSON to make it possible to integrate with other CRDT client libraries (for example one in JavaScript - which is on the [TODO](https://github.com/jboner/akka-crdt/blob/master/TODO.md) list). The JSON library used internally is [play-json](http://www.playframework.com/documentation/2.1.1/ScalaJson) and the REST API is implemented using [Unfiltered](http://unfiltered.databinder.net/Unfiltered.html).
 
 There are two different implementations: 
 
@@ -39,19 +52,7 @@ CvRDTs (Convergent Replicated Data Types) are _state-based_ and do not require a
 
 CmRDT (Commutative Replicated Data Types) are _operations-based_ and do require a fully reliable broadcast since only the events are stored and a CmRDT is brought up to its current state by replaying the event log. This implementation is based on a persistent transaction log realised through the [eventsourced](https://github.com/eligosource/eventsourced) library.
 
-## Standalone REST Server
-
-You can run the REST server in two different ways. 
-
-1. Run it in stand-alone mode from the command line. Here you run it by invoking ``sbt run`` in the project root directory. You configure it through JVM options, which will override the default configuration values. Example: ``sbt run -Dakka.crdt.rest-server.port=9999``. You shut down the server by invoking ``Control-C`` which cleans up all resources and by default this destroys the LevelDB database (deletes the files), if you don't want this behaviour then start it up with ``-Dakka.crdt.convergent.leveldb.destroy-on-shutdown=off``.
-
-2. Embedded in an Akka application (see the 'Embedded Server' section below for details). To do this just create the extension using ``val db = ConvergentReplicatedDataTypeDatabase(system)`` and off you go. The REST server will be started automatically if the ``akka.crdt.rest-server.run`` is set to ``on``. 
-
-Each CRDT has a read-only JSON view representation which is used in the REST API for querying data. For details on the REST API and the different JSON views see the section with the different CRDT descriptions below. 
-
-The REST client can contact any of the nodes in the cluster to read or write any data. Normally cluster would be deployed with a load balancer in front of it that can balance the load evenly across the cluster. It is possible to ask any server node for the current complete list of nodes to talk to through the `http://url:port/nodes` GET request which will return a list of all the contact points in the cluster: `[{"host":"127.0.0.1","port":9009}]`  Note that this list can/will change dynamically.
-
-## Embedded Server
+## Akka Extension & Scala API
 
 You can create the ``ConvergentReplicatedDataTypeDatabase`` Extension like this (from within an actor): 
 
@@ -71,6 +72,18 @@ Shut down the database:
 db.shutdown()
 ```
     
+## REST Server & REST API
+
+You can run the REST server in two different ways. 
+
+1. Run it in stand-alone mode from the command line. Here you run it by invoking ``sbt run`` in the project root directory. You configure it through JVM options, which will override the default configuration values. Example: ``sbt run -Dakka.crdt.rest-server.port=9009``. You shut down the server by invoking ``Control-C`` which cleans up all resources and by default this destroys the LevelDB database (deletes the files), if you don't want this behaviour then start it up with ``-Dakka.crdt.convergent.leveldb.destroy-on-shutdown=off``.
+
+2. Embedded in an Akka application (see the 'Embedded Server' section below for details). To do this just create the extension using ``val db = ConvergentReplicatedDataTypeDatabase(system)`` and off you go. The REST server will be started automatically if the ``akka.crdt.rest-server.run`` is set to ``on``. 
+
+Each CRDT has a read-only JSON view representation which is used in the REST API for querying data. For details on the REST API and the different JSON views see the section with the different CRDT descriptions below. 
+
+The REST client can contact any of the nodes in the cluster to read or write any data. Normally cluster would be deployed with a load balancer in front of it that can balance the load evenly across the cluster.
+
 ## LevelDB
 
 [LevelDB](http://code.google.com/p/leveldb/) is the default storage engine, you can configure it to look for a native installation and fall back to a Java port, or it will use the Java port directly. See the configuration file options for details on this and other config options. 
@@ -100,28 +113,29 @@ counts.
 
 #### Scala API
 
-Create a ``g-counter`` in Scala: 
+Create a ``g-counter``: 
 
 ```scala
 val nrOfUsers: GCounter = db.create[GCounter]("users")
 ```
 
-Find a ``g-counter`` by id in Scala: 
+Or: 
+
+```scala
+val nrOfUsers: GCounter = GCounter("users")
+nrOfUsers.store(context.system)
+```
+
+Find a ``g-counter`` by id: 
 
 ```scala
 val nrOfUsers: Future[GCounter] = db.findById[GCounter]("users")
 ```
 
-Find or Create a ``g-counter`` in Scala: 
+Find or Create a ``g-counter``: 
 
 ```scala
 val nrOfUsers: Future[GCounter] = db.findOrCreate[GCounter]("users")
-```
-
-Store updates to a ``g-counter`` in Scala: 
-
-```scala
-db.update(counter)
 ```
 
 Increment the counter by 1: 
@@ -150,7 +164,19 @@ Merge two counters:
 val mergedCounter: GCounter = thisCounter merge thatCounter
 ```
 
-Get the view (the current value) of the counter: 
+Store updates to a ``g-counter``: 
+
+```scala
+// from within an actor
+counter.store(system)
+```
+Or:
+
+```scala
+db.update(counter)
+```
+
+Get the view (the current value) of the counter:
 
 ```scala
 val nrOfUsersView: GCounterView = nrOfUsers.view
@@ -240,22 +266,23 @@ the value of the N counter.
 
 #### Scala API
 
-Create a ``pn-counter`` in Scala: 
+Create a ``pn-counter``: 
 
 ```scala
 val nrOfUsers: Future[PNCounter] = db.create[PNCounter]("users")
 ```
 
-Find a ``pn-counter`` by id in Scala: 
+Or: 
+
+```scala
+val nrOfUsers: PNCounter = PNCounter("users")
+nrOfUsers.store(context.system)
+```
+
+Find a ``pn-counter`` by id: 
 
 ```scala
 val nrOfUsers: Future[PNCounter] = db.findById[PNCounter]("users")
-```
-
-Store updates to a ``pn-counter`` in Scala: 
-
-```scala
-db.update(counter)
 ```
 
 Increment the counter by 1: 
@@ -296,6 +323,18 @@ Merge two counters:
 
 ```scala
 val mergedCounter: PNCounter = thisCounter merge thatCounter
+```
+
+Store updates to a ``pn-counter``: 
+
+```scala
+// from within an actor
+counter.store(system)
+```
+Or:
+
+```scala
+db.update(counter)
 ```
 
 Get the view (the current value) of the counter: 
@@ -406,22 +445,23 @@ of type ``JsValue`` (play-json).
 
 #### Scala API
 
-Create a ``g-set`` in Scala: 
+Create a ``g-set``: 
 
 ```scala
 val users: Future[GSet] = db.create[GSet]("users")
 ```
 
-Find a ``g-set`` by id in Scala: 
+Or: 
+
+```scala
+val users: GSet = GSet("users")
+users.store(context.system)
+```
+
+Find a ``g-set`` by id: 
 
 ```scala
 val users: Future[GSet] = db.findById[GSet]("users")
-```
-
-Store updates to a ``g-set`` in Scala: 
-
-```scala
-db.update(set)
 ```
 
 Add JSON element to the set: 
@@ -442,6 +482,18 @@ Merge two sets:
 
 ```scala
 val mergedSet: GSet = thisSet merge thatSet
+```
+
+Store updates to a ``g-set``: 
+
+```scala
+// from within an actor
+set.store(system)
+```
+Or:
+
+```scala
+db.update(set)
 ```
 
 Get the view (the current value) of the set: 
@@ -491,7 +543,7 @@ curl -i -H "Accept: application/json" -X PUT http://127.0.0.1:9009/g-set
 ```
 
 ##### GET
-Create g-set by id.
+Find g-set by id.
 
 ```bash
 curl -i -H "Accept: application/json" http://127.0.0.1:9009/g-set/users
@@ -553,22 +605,23 @@ A ``TwoPhaseSet`` can only contain JSON values of type ``JsValue`` (play-json).
 
 #### Scala API
 
-Create a ``2p-set`` in Scala: 
+Create a ``2p-set``: 
 
 ```scala
 val users: Future[TwoPhaseSet] = db.create[TwoPhaseSet]("users")
 ```
 
-Find a ``2p-set`` by id in Scala: 
+Or: 
+
+```scala
+val users: TwoPhaseSet = TwoPhaseSet("users")
+users.store(context.system)
+```
+
+Find a ``2p-set`` by id: 
 
 ```scala
 val users: Future[TwoPhaseSet] = db.findById[TwoPhaseSet]("users")
-```
-
-Store updates to a ``2p-set`` in Scala: 
-
-```scala
-db.update(set)
 ```
 
 Add JSON element to the set: 
@@ -595,6 +648,18 @@ Merge two sets:
 
 ```scala
 val mergedSet: TwoPhaseSet = thisSet merge thatSet
+```
+
+Store updates to a ``2p-set``: 
+
+```scala
+// from within an actor
+set.store(system)
+```
+Or:
+
+```scala
+db.update(set)
 ```
 
 Get the view (the current value) of the set: 
@@ -650,7 +715,7 @@ curl -i -H "Accept: application/json" -X PUT http://127.0.0.1:9009/2p-set
 ```
 
 ##### GET
-Create 2p-set by id.
+FInd a 2p-set by id.
 
 ```bash
 curl -i -H "Accept: application/json" http://127.0.0.1:9009/2P-Set-set/users
@@ -729,7 +794,7 @@ This is the internal representation of a ``2p-set``:
 
 To be implemented. 
 
-## Subscribe To Updated CRDTs
+## Subscribe To Updated CRDTs via the EventBus
 
 All changes (newly merged CRDTs) are published to [Akka Event Bus](http://doc.akka.io/docs/akka/snapshot/scala/event-bus.html). If you are interested in getting these events you can just subscribe to them. Here is an example:
 
@@ -760,8 +825,9 @@ akka {
       port     = 9009
     }
     convergent {
-      batching-window = 10ms
-      
+      batching-window                  = 10ms
+      change-set-resubmission-interval = 1000ms
+
       # needs to implement the 'akka.crdt.convergent.Storage' trait
       storage-class   = akka.crdt.convergent.LevelDbStorage
     

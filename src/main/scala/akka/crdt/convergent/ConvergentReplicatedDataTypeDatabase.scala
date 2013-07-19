@@ -292,7 +292,7 @@ class Subscriber(database: ConvergentReplicatedDataTypeDatabase) extends Actor w
           case jsonString: String ⇒
             val json = parse(jsonString)
             (json \ "type").as[String] match {
-
+          
               case "g-counter" ⇒
                 val counter = json.as[GCounter]
                 val newCounter = storage.findById[GCounter](counter.id) map { _ merge counter } getOrElse { counter }
