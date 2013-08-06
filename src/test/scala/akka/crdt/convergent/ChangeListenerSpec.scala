@@ -61,7 +61,7 @@ class ChangeListenerSpec
     system.shutdown()
   }
 
-  "A subscriber to the event stream" must {
+  "A journal to the event stream" must {
     "receive events about (all types of) CvRDT changes" in {
       listener ! Kick // to set the sender
 

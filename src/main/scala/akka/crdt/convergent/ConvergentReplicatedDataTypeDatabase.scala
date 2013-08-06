@@ -42,7 +42,8 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
   import system.dispatcher
 
   val log = Logging(sys, ConvergentReplicatedDataTypeDatabase.this)
-  val nodename = Cluster(sys).selfAddress.hostPort.replace('@', '_').replace(':', '_')
+  val selfAddress = Cluster(system).selfAddress
+  val nodename = selfAddress.hostPort.replace('@', '_').replace(':', '_')
   val settings = new ConvergentReplicatedDataTypeSettings(system.settings.config, system.name)
   implicit val queryTimeout: Timeout = Timeout(10 seconds)
 
@@ -57,7 +58,22 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
   // FIXME: perhaps use common supervisor for the pub/sub actors?
   // FIXME move props to companion object
   private val replicator = system.actorOf(Props(classOf[Replicator], settings), name = "crdt:replicator")
-  private val subscriber = system.actorOf(Props(classOf[Subscriber], this), name = "crdt:subscriber")
+  private val journal = system.actorOf(Props(classOf[Journal], this), name = "crdt:journal")
+
+  // immutable read-view of the current snapshots of members
+  import Member.addressOrdering
+  @volatile private var members: immutable.SortedSet[Address] = immutable.SortedSet.empty[Address] + selfAddress
+
+  private val clusterListener = system.actorOf(Props(new Actor with ActorLogging {
+    def receive = {
+      case state: CurrentClusterState ⇒ members = members ++ state.members.map(_.address)
+      case MemberUp(member)           ⇒ members = members + member.address
+      case MemberRemoved(member, _)   ⇒ members = members - member.address
+      case _: ClusterDomainEvent      ⇒ // ignore
+    }
+  }), name = "crdt:clusterListener")
+
+  Cluster(system).subscribe(clusterListener, classOf[ClusterDomainEvent])
 
   system.registerOnTermination(shutdown())
 
@@ -93,7 +109,7 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
 
   def findById[T <: ConvergentReplicatedDataType: ClassTag](id: String = UUID.randomUUID.toString): Future[T] = {
     val promise = Promise[T]()
-    (subscriber ? Subscriber.FindById(id, implicitly[ClassTag[T]].runtimeClass)).mapTo[Try[T]] foreach { promise complete _ }
+    (journal ? Journal.FindById(id, implicitly[ClassTag[T]].runtimeClass)).mapTo[Try[T]].foreach { promise complete _ }
     promise.future
   }
 
@@ -128,13 +144,23 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
   def shutdown(): Unit = {
     log.info("Shutting down ConvergentReplicatedDataTypeDatabase...")
     restServer foreach { _.shutdown() }
-    system.stop(subscriber)
+    system.stop(journal)
     system.stop(replicator)
     storage.destroy()
     log.info("ConvergentReplicatedDataTypeDatabase shut down successfully")
   }
 
   private def replicate(json: JsValue): Unit = replicator ! Replicator.Replicate(json)
+
+  /**
+   * Used to select the buddy node for buddy replication.
+   */
+  private def closestNeighbourInMembershipRing: Address = {
+    val addresses = members.toArray[Address]
+    val index = addresses.indexOf(selfAddress)
+    if (index == addresses.size - 1) addresses(0) // I'm last, pick the first member
+    else addresses(index + 1) // Pick the member to the right of me
+  }
 }
 
 object Replicator {
@@ -152,7 +178,7 @@ class Replicator(settings: ConvergentReplicatedDataTypeSettings)
   extends Actor with ActorLogging { replicator ⇒
   import Replicator._
   import Resubmittor._
-  import Subscriber._
+  import Journal._
   import settings._
 
   val selfAddress = Cluster(context.system).selfAddress
@@ -182,7 +208,7 @@ class Replicator(settings: ConvergentReplicatedDataTypeSettings)
       replicas foreach { replica ⇒
         log.debug("Replicating updated CvRDT batch [{}] to [{}]", batch.mkString(", "), replica)
         resubmittor ! VerifyAckFor(replica, changeSet)
-        context.actorSelection(replica + subscriberPath) tell (changeSet, resubmittor)
+        context.actorSelection(replica + journalPath) tell (changeSet, resubmittor)
       }
     }
     newBatchingWindow()
@@ -216,12 +242,12 @@ class Replicator(settings: ConvergentReplicatedDataTypeSettings)
 
 object Resubmittor {
   case class ReplicaSetChange(replicas: immutable.Set[Address])
-  case class VerifyAckFor(replica: Address, changeSet: Subscriber.ChangeSet)
+  case class VerifyAckFor(replica: Address, changeSet: Journal.ChangeSet)
   case object ResubmitChangeSets
 }
 
 class Resubmittor(settings: ConvergentReplicatedDataTypeSettings) extends Actor with ActorLogging {
-  import Subscriber._
+  import Journal._
   import Replicator._
   import Resubmittor._
   import settings._
@@ -248,7 +274,7 @@ class Resubmittor(settings: ConvergentReplicatedDataTypeSettings) extends Actor 
       changeSets foreach {
         case (replica, changeSet) ⇒
           log.debug("Resubmitting change set to replica [{}]", replica)
-          context.actorSelection(replica + subscriberPath) ! changeSet
+          context.actorSelection(replica + journalPath) ! changeSet
       }
   }
 
@@ -258,8 +284,8 @@ class Resubmittor(settings: ConvergentReplicatedDataTypeSettings) extends Actor 
   }
 }
 
-object Subscriber {
-  val subscriberPath = "/user/crdt:subscriber"
+object Journal {
+  val journalPath = "/user/crdt:journal"
 
   // FIXME Create Protobuf messages for these case classes
   case class FindById(id: String, clazz: Class[_])
@@ -267,17 +293,17 @@ object Subscriber {
 }
 
 /**
- * Subscribing on CvRDT changes broadcasted by the Publisher.
+ * Subscribing on CvRDT changes broadcasted by the Publisher and storing the in the Storage.
  */
-class Subscriber(database: ConvergentReplicatedDataTypeDatabase) extends Actor with ActorLogging {
-  import Subscriber._
+class Journal(database: ConvergentReplicatedDataTypeDatabase) extends Actor with ActorLogging {
+  import Journal._
   import Replicator._
   import database.storage
 
   val selfAddress = Cluster(context.system).selfAddress
 
   override def preStart(): Unit = {
-    log.info("Starting CvRDT change subscriber")
+    log.info("Starting CvRDT change journal")
   }
 
   def receive: Receive = {
@@ -292,7 +318,7 @@ class Subscriber(database: ConvergentReplicatedDataTypeDatabase) extends Actor w
           case jsonString: String ⇒
             val json = parse(jsonString)
             (json \ "type").as[String] match {
-          
+
               case "g-counter" ⇒
                 val counter = json.as[GCounter]
                 val newCounter = storage.findById[GCounter](counter.id) map { _ merge counter } getOrElse { counter }
@@ -336,7 +362,5 @@ class Subscriber(database: ConvergentReplicatedDataTypeDatabase) extends Actor w
         else if (classOf[TwoPhaseSet].isAssignableFrom(clazz)) storage.findById[TwoPhaseSet](id)
         else throw new ClassCastException(s"Could create new CvRDT with id [$id] and type [$clazz]")
       sender ! crdt
-
-    case unknown ⇒ throw new IllegalStateException(s"Received unknown message [$unknown]")
   }
 }
