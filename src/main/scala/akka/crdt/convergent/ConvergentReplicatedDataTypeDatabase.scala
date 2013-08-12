@@ -154,12 +154,16 @@ class ConvergentReplicatedDataTypeDatabase(sys: ExtendedActorSystem) extends Ext
 
   /**
    * Used to select the buddy node for buddy replication.
+   * @returns ``None`` if we have a single-node cluster else ``Some(buddyAddress)``
    */
-  private def closestNeighbourInMembershipRing: Address = {
+  private def closestNeighbourInMembershipRing: Option[Address] = {
     val addresses = members.toArray[Address]
     val index = addresses.indexOf(selfAddress)
-    if (index == addresses.size - 1) addresses(0) // I'm last, pick the first member
-    else addresses(index + 1) // Pick the member to the right of me
+    val buddy =
+      if (index == addresses.size - 1) addresses(0) // I'm last, pick the first member
+      else addresses(index + 1) // Pick the member to the right of me
+    if (buddy == selfAddress) None // No buddies around - single-node cluster
+    else Some(buddy)
   }
 }
 
