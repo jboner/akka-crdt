@@ -254,7 +254,7 @@ class Resubmittor(settings: ConvergentReplicatedDataTypeSettings) extends Actor 
   import context.dispatcher
 
   var replicas: immutable.Set[Address] = immutable.Set.empty[Address]
-  var changeSets = immutable.Map.empty[Address, ChangeSet]
+  var changeSets = immutable.Map.empty[Address, immutable.Seq[ChangeSet]]
 
   def receive = {
     case ReplicaSetChange(newReplicaSet) ⇒
@@ -264,7 +264,8 @@ class Resubmittor(settings: ConvergentReplicatedDataTypeSettings) extends Actor 
       log.debug("Replica set have changed - new set [{}]", replicas.mkString(", "))
 
     case VerifyAckFor(replica, changeSet) ⇒
-      changeSets += (replica -> changeSet)
+      val currentChangeSets = changeSetsFor(replica)
+      changeSets += (replica -> (currentChangeSets :+ changeSet))
 
     case Ack(replica) ⇒
       log.debug("Received ACK from replica [{}]", replica)
@@ -272,15 +273,21 @@ class Resubmittor(settings: ConvergentReplicatedDataTypeSettings) extends Actor 
 
     case ResubmitChangeSets ⇒
       changeSets foreach {
-        case (replica, changeSet) ⇒
-          log.debug("Resubmitting change set to replica [{}]", replica)
-          context.actorSelection(replica + journalPath) ! changeSet
+        case (replica, changeSets) ⇒
+          log.debug("Resubmitting change sets to replica [{}]", replica)
+          changeSets foreach { changeSet ⇒ context.actorSelection(replica + journalPath) ! changeSet }
       }
   }
 
   override def preStart(): Unit = {
     context.system.scheduler.schedule(
       ChangeSetResubmissionInterval, ChangeSetResubmissionInterval, self, ResubmitChangeSets)
+  }
+
+  def changeSetsFor(replica: Address): immutable.Seq[ChangeSet] = {
+    val changeSetGroup = changeSets.get(replica) getOrElse immutable.Seq.empty[ChangeSet]
+    changeSets += (replica -> changeSetGroup)
+    changeSetGroup
   }
 }
 
