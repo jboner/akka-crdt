@@ -35,7 +35,7 @@ nrOfUsers map { _ + self.path } foreach { _.store(system) }
 
 The implementation is provided as an [Akka Extension](http://doc.akka.io/docs/akka/snapshot/scala/extending-akka.html) and build on top of [Akka Cluster](http://doc.akka.io/docs/akka/snapshot/common/cluster.html#cluster), which means that the cluster is fully elastic - allowing you to add and remove nodes on the fly as-needed. The storage system is pluggable with a default implementation of [LevelDB](http://code.google.com/p/leveldb/) (both native and Java port). 
 
-The CRDTs are immutable and can be queried, updated and managed either directly using the Akka Extension from within actors running on each node or from the "outside" through a REST API serving JSON over HTTP (see below for details). The serialisation protocol/format is pure JSON to make it possible to integrate with other CRDT client libraries (for example one in JavaScript - which is on the [TODO](https://github.com/jboner/akka-crdt/blob/master/TODO.md) list). The JSON library used internally is [play-json](http://www.playframework.com/documentation/2.1.1/ScalaJson) and the REST API is implemented using [Unfiltered](http://unfiltered.databinder.net/Unfiltered.html).
+The CRDTs are immutable and can be queried, updated and managed either directly using the Akka Extension from within actors running on each node or from the "outside" through a REST API serving JSON over HTTP (see below for details). The serialisation protocol/format is pure JSON to make it possible to integrate with other CRDT client libraries (for example one in JavaScript - which is on the [TODO](https://github.com/jboner/akka-crdt/blob/master/TODO.md) list). The JSON library used internally is [play-json](http://www.playframework.com/documentation/2.1.1/ScalaJson) and the REST API is implemented using [Unfiltered](http://unfiltered.databinder.net/Unfiltered.html). Testing is done with ScalaTest, Akka Testkit and Dispatch. 
 
 There are two different implementations: 
 
@@ -52,7 +52,7 @@ In the CvRDT implementation the change sets are batched up (using a configurable
 
 **Not implemented yet** 
 
-CmRDT (Commutative Replicated Data Types) are _operations-based_ and do require a fully reliable broadcast since only the events are stored and a CmRDT is brought up to its current state by replaying the event log. This implementation is based on a persistent transaction log realised through the [eventsourced](https://github.com/eligosource/eventsourced) library.
+CmRDT (Commutative Replicated Data Types) are _operations-based_ and do require a fully reliable broadcast since only the events are stored and a CmRDT is brought up to its current state by replaying the event log. This implementation is based on a persistent transaction log realised through the upcoming [akka-persistence](https://groups.google.com/forum/#!msg/akka-user/k3N_LgJR5WM/CqhsY00KBgkJ) library.
 
 ## Akka Extension & Scala API
 

@@ -71,7 +71,7 @@ Write docs for:
 
 ### Reliable Broadcast for CmRDTs
 
-* Using eventsourced - [Use the Akka 2.2 branch](https://github.com/eligosource/eventsourced/tree/wip-akka-2.2).
+* Using akka-persistence
 
 ### Client API 
 * Write a JavaScript CRDT library. So a client can grab the real JSON representation, modify it, do the merges as needed and then push the result back to the server.
