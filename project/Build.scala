@@ -36,7 +36,6 @@ object Dependencies {
   import Versions._
   lazy val akkaActor     		 = "com.typesafe.akka" 				 %% "akka-actor"                % AkkaVersion    % "compile"
   lazy val akkaCluster   		 = "com.typesafe.akka"  			 %% "akka-cluster"              % AkkaVersion    % "compile"
-  lazy val akkaContrib   		 = "com.typesafe.akka" 			   %% "akka-contrib"              % AkkaVersion    % "compile"
   lazy val playJson      		 = "play"              			   %% "play-json"                 % "2.2-SNAPSHOT" % "compile"
   lazy val levelDbNative 		 = "org.fusesource.leveldbjni" % "leveldbjni-all"             % "1.6.1"        % "compile"
   lazy val levelDbJava   		 = "org.iq80.leveldb"          % "leveldb"                    % "0.5"          % "compile"
@@ -46,17 +45,17 @@ object Dependencies {
   lazy val akkaMultiNodeTest = "com.typesafe.akka" 				 %% "akka-remote-tests" 				% AkkaVersion    % "test"
 }
 
-object CRDTBuild extends Build {
+object AkkaCrdtBuild extends Build {
   import BuildSettings._
   import Resolvers._
   import Dependencies._
 
-  lazy val akkaCRDT = Project (
+  lazy val akkaCrdt = Project (
     "akka-crdt",
     file("."),
     settings = buildSettings ++ multiJvmSettings ++ formatSettings ++ Seq (
       resolvers            := Seq (playJsonSnapshots, sonatypeSnapshots),
-      libraryDependencies ++= Seq (akkaActor, akkaCluster, akkaContrib, playJson, unfiltered, dispatch, levelDbNative, levelDbJava),
+      libraryDependencies ++= Seq (akkaActor, akkaCluster, playJson, unfiltered, dispatch, levelDbNative, levelDbJava),
       libraryDependencies ++= Seq (scalaTest, akkaMultiNodeTest)
     )
   ) configs(MultiJvm)
