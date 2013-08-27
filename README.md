@@ -52,7 +52,7 @@ In the CvRDT implementation the change sets are batched up (using a configurable
 
 **Not implemented yet** 
 
-CmRDT (Commutative Replicated Data Types) are _operations-based_ and do require a fully reliable broadcast since only the events are stored and a CmRDT is brought up to its current state by replaying the event log. This implementation is based on a persistent transaction log realised through the upcoming [akka-persistence](https://groups.google.com/forum/#!msg/akka-user/k3N_LgJR5WM/CqhsY00KBgkJ) library.
+CmRDT (Commutative Replicated Data Types) are _operations-based_ and do require a fully reliable broadcast since only the events are stored and a CmRDT is brought up to its current state by replaying the event log. This implementation is based on a persistent transaction log architecture realised through the upcoming [akka-persistence](https://groups.google.com/forum/#!msg/akka-user/k3N_LgJR5WM/CqhsY00KBgkJ) library. Either basing it on a single highly-available replicated transaction log, or — perhaps more interesting — letting each replica have its own transaction log as a form of sharding in order to avoid introducing a SPOF and SPOB. 
 
 ## Akka Extension & Scala API
 
