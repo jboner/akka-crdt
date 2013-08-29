@@ -42,7 +42,7 @@ ScalariformKeys.preferences := ScalariformKeys.preferences.value
 
 // ======== multi-jvm plugin ======== 
 lazy val akka_crdt = Project (
-	"akka-crdt",
+  "akka-crdt",
   file("."),
   settings = Defaults.defaultSettings ++ multiJvmSettings,
   configurations = Configurations.default :+ MultiJvm
