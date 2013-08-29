@@ -14,8 +14,8 @@ import akka.actor.ActorSystem
  * Implements a ConvergentReplicatedDataType 'Add Set' also called a 'G-Set'. You cannot remove an element of a G-Set.
  */
 case class GSet(
-  id: String = UUID.randomUUID.toString,
-  private[crdt] val state: immutable.Set[JsValue] = immutable.Set.empty[JsValue]) extends Set {
+    id: String = UUID.randomUUID.toString,
+    private[crdt] val state: immutable.Set[JsValue] = immutable.Set.empty[JsValue]) extends Set {
 
   override val dataType: String = GSet.dataType
 

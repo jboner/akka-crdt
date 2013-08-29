@@ -107,7 +107,7 @@ trait AsyncPlan {
 }
 
 class CvRDTPlan(storage: ConvergentReplicatedDataTypeDatabase)
-  extends async.Plan with ServerErrorResponse with AsyncPlan {
+    extends async.Plan with ServerErrorResponse with AsyncPlan {
   import storage.system.dispatcher
 
   def intent = {

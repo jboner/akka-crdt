@@ -17,9 +17,9 @@ import org.fusesource.leveldbjni.JniDBFactory.{ asString, bytes }
 import java.io.File
 
 class LevelDbStorage(
-  val nodename: String,
-  val settings: ConvergentReplicatedDataTypeSettings,
-  log: LoggingAdapter) extends Storage { storage ⇒
+    val nodename: String,
+    val settings: ConvergentReplicatedDataTypeSettings,
+    log: LoggingAdapter) extends Storage { storage ⇒
   import settings._
 
   val filename = s"$LevelDbStoragePath/$nodename"

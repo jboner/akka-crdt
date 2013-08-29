@@ -20,7 +20,7 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 
 class ChangeListenerSpec
-  extends TestKit(ActorSystem("ChangeListenerSpec", ConfigFactory.parseString("""
+    extends TestKit(ActorSystem("ChangeListenerSpec", ConfigFactory.parseString("""
 		akka {
   		crdt.convergent.leveldb.destroy-on-shutdown = on
 			actor.provider = akka.cluster.ClusterActorRefProvider

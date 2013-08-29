@@ -19,8 +19,8 @@ import ConvergentReplicatedDataType._
  * clock merge). The value of the counter is the sum of all actor counts.
  */
 case class GCounter(
-  id: String = UUID.randomUUID.toString,
-  private[crdt] val state: Map[String, Int] = Map.empty[String, Int]) extends Counter {
+    id: String = UUID.randomUUID.toString,
+    private[crdt] val state: Map[String, Int] = Map.empty[String, Int]) extends Counter {
 
   override val dataType: String = GCounter.dataType
 

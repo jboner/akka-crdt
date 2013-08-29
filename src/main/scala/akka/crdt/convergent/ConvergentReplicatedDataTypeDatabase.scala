@@ -21,8 +21,8 @@ import scala.concurrent.{ Future, Promise }
 import java.util.UUID
 
 object ConvergentReplicatedDataTypeDatabase
-  extends ExtensionId[ConvergentReplicatedDataTypeDatabase]
-  with ExtensionIdProvider {
+    extends ExtensionId[ConvergentReplicatedDataTypeDatabase]
+    with ExtensionIdProvider {
 
   override def get(system: ActorSystem): ConvergentReplicatedDataTypeDatabase = super.get(system)
 
@@ -179,7 +179,7 @@ object Replicator {
  * Uses a configurable batching window.
  */
 class Replicator(settings: ConvergentReplicatedDataTypeSettings)
-  extends Actor with ActorLogging { replicator ⇒
+    extends Actor with ActorLogging { replicator ⇒
   import Replicator._
   import Resubmittor._
   import Journal._

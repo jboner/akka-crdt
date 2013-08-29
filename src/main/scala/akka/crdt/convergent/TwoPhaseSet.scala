@@ -19,9 +19,9 @@ import akka.actor.ActorSystem
  * precedence over adds.
  */
 case class TwoPhaseSet(
-  id: String,
-  private[crdt] val adds: GSet,
-  private[crdt] val removes: GSet) extends Set {
+    id: String,
+    private[crdt] val adds: GSet,
+    private[crdt] val removes: GSet) extends Set {
 
   override val dataType: String = TwoPhaseSet.dataType
 

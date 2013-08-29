@@ -8,7 +8,6 @@ import org.scalatest.matchers.MustMatchers
 
 import akka.remote.testkit.{MultiNodeSpec, MultiNodeSpecCallbacks}
 import akka.testkit.ImplicitSender
-import akka.contrib.pattern.{DistributedPubSubExtension, DistributedPubSubMediator}
 
 import scala.concurrent.duration._
 

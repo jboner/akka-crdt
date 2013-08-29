@@ -19,9 +19,9 @@ import akka.actor.ActorSystem
  * the value of the N counter.
  */
 case class PNCounter private (
-  id: String,
-  private[crdt] val increments: GCounter,
-  private[crdt] val decrements: GCounter) extends Counter {
+    id: String,
+    private[crdt] val increments: GCounter,
+    private[crdt] val decrements: GCounter) extends Counter {
 
   override val dataType: String = PNCounter.dataType
 
