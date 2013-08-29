@@ -1,7 +1,7 @@
 import sbt._
 
 object Dependencies {
-  val AkkaVersion = "2.2.0"
+  val AkkaVersion = "2.2.1"
 
   val akkaActor         = "com.typesafe.akka"         %% "akka-actor"               % AkkaVersion    % "compile"
   val akkaCluster       = "com.typesafe.akka"         %% "akka-cluster"             % AkkaVersion    % "compile"
