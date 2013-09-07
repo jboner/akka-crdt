@@ -74,6 +74,8 @@ Write docs for:
 * Using akka-persistence
 
 ### Client API 
+
+* Rewrite the REST API using Spray
 * Write a JavaScript CRDT library. So a client can grab the real JSON representation, modify it, do the merges as needed and then push the result back to the server.
 * Java API for CRDT classes/ClusterClient
 

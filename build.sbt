@@ -1,11 +1,11 @@
-// ======== imports ======== 
+// ======== imports ========
 import Resolvers._
 import Dependencies._
 import com.typesafe.sbt.SbtMultiJvm
 import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
 import scalariform.formatter.preferences._
 
-// ======== settings ======== 
+// ======== settings ========
 organization := "com.typesafe.akka"
 
 name := "akka-crdt"
@@ -31,7 +31,7 @@ scalacOptions ++= Seq(
   "-encoding", "UTF-8"
 )
 
-// ======== scalariform ======== 
+// ======== scalariform ========
 scalariformSettings
 
 ScalariformKeys.preferences := ScalariformKeys.preferences.value
@@ -40,7 +40,7 @@ ScalariformKeys.preferences := ScalariformKeys.preferences.value
   .setPreference(AlignSingleLineCaseStatements, true)
 
 
-// ======== multi-jvm plugin ======== 
+// ======== multi-jvm plugin ========
 lazy val akka_crdt = Project (
   "akka-crdt",
   file("."),
