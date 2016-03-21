@@ -1,8 +1,7 @@
-# Akka CRDT
+# Akka CRDT: An Eventually Consistent REST/JSON database using CRDTs, Akka Cluster and LevelDB.
 
 **NOTE**: This project was an experiment conducted in 2013 to build an eventually consistent REST and JSON database using CRDTs, Akka Cluster and LevelDB. Some of its ideas has now been rolled in to Akka itself through the [Akka Distributed Data](http://doc.akka.io/docs/akka/snapshot/scala/distributed-data.html) module (which is production-grade).
 
-**Server-managed CRDT database.**
 
 ## Introduction
 
